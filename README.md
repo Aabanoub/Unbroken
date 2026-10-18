@@ -97,3 +97,5 @@ Open `http://localhost:3000` in any mobile browser or desktop browser.
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    ```
 5. Deploy to Vercel via GitHub for 100% free hosting.
+   
+   Database password: 4UL8r9DD+J8+rqb

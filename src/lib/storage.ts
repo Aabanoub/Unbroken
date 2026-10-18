@@ -183,6 +183,8 @@ export async function authenticateUser(
 ): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
   const cleanEmail = email.trim().toLowerCase();
 
+  let supabaseAuthError: string | null = null;
+
   // 1. Try Supabase if configured
   if (isSupabaseConfigured && supabase) {
     try {
@@ -200,8 +202,12 @@ export async function authenticateUser(
         };
         saveCurrentSession(authUser);
         return { success: true, user: authUser };
+      } else if (error) {
+        supabaseAuthError = error.message;
+        console.warn("Supabase auth response:", error.message);
       }
     } catch (err: any) {
+      supabaseAuthError = err.message;
       console.warn("Supabase auth error, falling back to local registry:", err);
     }
   }
@@ -210,23 +216,25 @@ export async function authenticateUser(
   const accounts = getLocalAccountsRegistry();
   const found = accounts.find((a) => a.email.toLowerCase() === cleanEmail);
 
-  if (!found) {
-    return { success: false, error: "No account found with this email. Please sign up." };
+  if (found) {
+    if (found.passwordHash !== pass) {
+      return { success: false, error: "Incorrect password. Please try again." };
+    }
+    const authUser: AuthUser = {
+      id: found.id,
+      email: found.email,
+      displayName: found.displayName,
+      isGuest: found.id === DEMO_USER.id,
+    };
+    saveCurrentSession(authUser);
+    return { success: true, user: authUser };
   }
 
-  if (found.passwordHash !== pass) {
-    return { success: false, error: "Incorrect password. Please try again." };
+  if (supabaseAuthError) {
+    return { success: false, error: supabaseAuthError };
   }
 
-  const authUser: AuthUser = {
-    id: found.id,
-    email: found.email,
-    displayName: found.displayName,
-    isGuest: found.id === DEMO_USER.id,
-  };
-
-  saveCurrentSession(authUser);
-  return { success: true, user: authUser };
+  return { success: false, error: "No account found with this email. Please sign up." };
 }
 
 export async function registerNewUser(
@@ -256,6 +264,25 @@ export async function registerNewUser(
           isGuest: false,
         };
 
+        // Also save to local accounts registry for instant resilience
+        const accounts = getLocalAccountsRegistry();
+        const existingIdx = accounts.findIndex((a) => a.email.toLowerCase() === cleanEmail);
+        const accountEntry: LocalUserAccount = {
+          id: data.user.id,
+          email: cleanEmail,
+          passwordHash: pass,
+          displayName: cleanName,
+          createdAt: new Date().toISOString(),
+        };
+        if (existingIdx >= 0) {
+          accounts[existingIdx] = accountEntry;
+        } else {
+          accounts.push(accountEntry);
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEYS.USERS_REGISTRY, JSON.stringify(accounts));
+        }
+
         // Create initial profile for this user in Supabase and LocalStorage
         const initialProfile: UserProfile = {
           id: data.user.id,
@@ -280,17 +307,17 @@ export async function registerNewUser(
         saveCurrentSession(authUser);
         return { success: true, user: authUser };
       } else if (error) {
-        return { success: false, error: error.message };
+        console.warn("Supabase signup returned error, falling back to local account:", error.message);
       }
     } catch (err: any) {
       console.warn("Supabase signup error, falling back to local registry:", err);
     }
   }
 
-  // 2. Local accounts fallback
+  // 2. Local accounts fallback (or when Supabase email rate limit occurs)
   const accounts = getLocalAccountsRegistry();
-  const exists = accounts.some((a) => a.email.toLowerCase() === cleanEmail);
-  if (exists) {
+  const existingAccount = accounts.find((a) => a.email.toLowerCase() === cleanEmail);
+  if (existingAccount) {
     return { success: false, error: "An account with this email already exists. Please log in." };
   }
 
