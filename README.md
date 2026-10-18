@@ -57,9 +57,15 @@
 - Free & keyless **Bolls Life Bible API** live search (`https://bolls.life/get-verse/NKJV/{bookId}/{chapter}/{verse}/`) with automatic offline fallback.
 - Save Scriptures to personal reflection journal.
 
-### 7. 🔒 Discreet Privacy & Safety
+### 7. 🌐 Arabic Language & Light Mode Options
+- **Bilingual Internationalization (Arabic & English):** Instant switching between **English (LTR)** and **Arabic (العربية RTL)** with native typography and Smith & Van Dyck Arabic Bible verses.
+- **Light & Dark Themes:** Seamless toggling between sleek **Dark Mode** (`#090D16`) and high-contrast, clean **Light Mode** (`#F8FAFC`).
+- **Accessible Everywhere:** Quick switchers in the top navigation bar, on the Login page, and in the Shield & Settings menu with persistent state in `localStorage` and `UserProfile`.
+
+### 8. 🔒 Discreet Privacy & Multi-User Isolation
+- **Multi-User Data Isolation:** Every registered user has their own independent data space; multiple disciples can use the app on the same device without data collisions.
 - **4-Digit PIN Lock Screen:** Discrete keypad with attempt limits.
-- **Disguised App Header:** 1-tap toggle to disguise the header as **"Anchor Daily Habits"** so nobody glancing over a teen's shoulder knows they are in recovery.
+- **Disguised App Header:** 1-tap toggle to disguise the header as **"Daily Habits"** so nobody glancing over a teen's shoulder knows they are in recovery.
 
 ---
 
