@@ -32,7 +32,8 @@ import { BottomNav, NavTab } from "@/components/BottomNav";
 import { UrgeRescueModal } from "@/components/UrgeRescueModal";
 import { DailyCheckInModal } from "@/components/DailyCheckInModal";
 import { GraceRelapseModal } from "@/components/GraceRelapseModal";
-import { Lock, Shield, LogOut, Globe, Sun, Moon } from "lucide-react";
+import { useAutoSync } from "@/lib/syncManager";
+import { Lock, Shield, LogOut, Globe, Sun, Moon, Cloud, CloudOff, CloudUpload, CheckCircle2 } from "lucide-react";
 
 export default function AppRoot() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -53,6 +54,11 @@ export default function AppRoot() {
   const [showCheckInModal, setShowCheckInModal] = useState<boolean>(false);
   const [showRelapseGraceModal, setShowRelapseGraceModal] = useState<boolean>(false);
   const [forceAssessment, setForceAssessment] = useState<boolean>(false);
+
+  // Automatic Network-Aware Cloud Sync (Syncs whenever online or data mutates)
+  const { isOnline, syncState, justReconnected, syncNow } = useAutoSync(
+    currentUser?.id || null
+  );
 
   // Initialize language & theme from storage
   useEffect(() => {
@@ -381,6 +387,18 @@ export default function AppRoot() {
             : "bg-[#090D16] border-x border-slate-900"
         } flex flex-col relative px-4 pt-3 shadow-2xl transition-colors duration-200`}
       >
+        {/* Automatic Network Reconnect Toast */}
+        {justReconnected && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-2.5 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs font-bold animate-bounce">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>
+              {lang === "ar"
+                ? "✓ عاد الاتصال بالإنترنت: تمت مزامنة كافة بياناتك تلقائياً مع Supabase!"
+                : "✓ Back online: Automatically synced all your data to Supabase!"}
+            </span>
+          </div>
+        )}
+
         {/* App Top Bar */}
         <header
           className={`flex items-center justify-between py-2 border-b mb-3 transition-colors ${
@@ -410,6 +428,50 @@ export default function AppRoot() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Real-Time Network & Cloud Sync Status */}
+            <button
+              onClick={() => syncNow()}
+              title={
+                !isOnline
+                  ? lang === "ar"
+                    ? "العمل بدون إنترنت - ستتم المزامنة تلقائياً عند توفر الشبكة"
+                    : "Offline mode - Auto-syncs when network reconnects"
+                  : syncState === "syncing"
+                  ? lang === "ar"
+                    ? "جاري المزامنة مع Supabase..."
+                    : "Syncing with Supabase..."
+                  : lang === "ar"
+                  ? "متصل ومُتزامن تلقائياً مع Supabase"
+                  : "Connected & Auto-Synced with Supabase"
+              }
+              className={`px-2 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all ${
+                !isOnline
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                  : syncState === "syncing"
+                  ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+                  : isLight
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+              }`}
+            >
+              {!isOnline ? (
+                <>
+                  <CloudOff className="w-3 h-3 text-amber-500" />
+                  <span className="hidden sm:inline">{lang === "ar" ? "محلي" : "Offline"}</span>
+                </>
+              ) : syncState === "syncing" ? (
+                <>
+                  <CloudUpload className="w-3 h-3 text-indigo-400 animate-spin" />
+                  <span className="hidden sm:inline">{lang === "ar" ? "مزامنة" : "Syncing"}</span>
+                </>
+              ) : (
+                <>
+                  <Cloud className="w-3 h-3 text-emerald-500" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                </>
+              )}
+            </button>
+
             {/* Quick Language Toggle */}
             <button
               onClick={() => handleToggleLang()}

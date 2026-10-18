@@ -1,5 +1,6 @@
 import { UserProfile, DailyLog, SavedVerse, AuthUser, Language, ThemeMode } from "@/types";
 import { supabase, isSupabaseConfigured } from "./supabase";
+import { notifyDataChanged } from "./syncManager";
 
 const STORAGE_KEYS = {
   CURRENT_USER: "unbroken_active_user_session_v1",
@@ -498,6 +499,7 @@ export function saveUserProfile(userId: string, updates: Partial<UserProfile>): 
       });
   }
 
+  notifyDataChanged();
   return updated;
 }
 
@@ -567,6 +569,7 @@ export function saveUserDailyLog(
       });
   }
 
+  notifyDataChanged();
   return created;
 }
 
@@ -627,6 +630,7 @@ export function saveUserVerse(
       });
   }
 
+  notifyDataChanged();
   return created;
 }
 
@@ -650,6 +654,8 @@ export function removeUserVerse(userId: string, id: string): void {
         if (error) console.warn("Supabase remove verse warning:", error.message);
       });
   }
+
+  notifyDataChanged();
 }
 
 // -----------------------------------------------------------------------------
