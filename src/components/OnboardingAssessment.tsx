@@ -8,6 +8,10 @@ import {
   Brain,
   Shield,
   ArrowRight,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
   Sparkles,
   HeartHandshake,
   Activity,
@@ -19,22 +23,39 @@ interface OnboardingAssessmentProps {
   onComplete: (profile: Partial<UserProfile>) => void;
   lang?: Language;
   theme?: ThemeMode;
+  onToggleLang?: (targetLang?: Language) => void;
 }
 
 export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
   initialProfile,
   onComplete,
-  lang = "en",
+  lang: initialLang = "en",
   theme = "dark",
+  onToggleLang,
 }) => {
+  const [currentLang, setCurrentLang] = useState<Language>(initialLang);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [showReport, setShowReport] = useState(false);
   const [calculatedScore, setCalculatedScore] = useState(0);
   const [nameInput, setNameInput] = useState(initialProfile.displayName || "Disciple");
 
+  const lang = currentLang;
   const t = getTranslation(lang);
   const isLight = theme === "light";
+
+  const handleLanguageChange = (newLang: Language) => {
+    setCurrentLang(newLang);
+    if (onToggleLang) {
+      onToggleLang(newLang);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
 
   const rawQuestion = ASSESSMENT_QUESTIONS[currentIndex];
   const currentQuestion = getLocalizedQuestion(rawQuestion, lang);
@@ -266,7 +287,7 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
           >
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
               <HeartHandshake className="w-4 h-4" />
-              {lang === "ar" ? "آيتك الكتابية الدفاعية" : "Your Anchor NKJV Scripture"}
+              {lang === "ar" ? "آيتك الكتابية الدفاعية" : "Your Anchor Scripture"}
             </div>
             <p className={`text-xs italic leading-relaxed font-serif ${isLight ? "text-slate-800" : "text-slate-300"}`}>
               &ldquo;{details.verseText}&rdquo;
@@ -301,6 +322,38 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
     >
       {/* Top Bar */}
       <div className="pt-4 space-y-4">
+        {/* Navigation & Controls */}
+        <div className="flex items-center justify-between gap-2">
+          {currentIndex > 0 ? (
+            <button
+              onClick={handlePrevQuestion}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+                isLight
+                  ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              {lang === "ar" ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+              <span>{lang === "ar" ? "السؤال السابق" : "Previous"}</span>
+            </button>
+          ) : (
+            <div className="w-20" />
+          )}
+
+          {/* Language Switch Button */}
+          <button
+            onClick={() => handleLanguageChange(lang === "ar" ? "en" : "ar")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all border ${
+              isLight
+                ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-blue-500" />
+            <span>{lang === "ar" ? "English" : "العربية"}</span>
+          </button>
+        </div>
+
         <div className="flex items-center justify-between text-xs font-medium">
           <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
             <Brain className="w-4 h-4" />

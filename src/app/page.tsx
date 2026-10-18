@@ -209,6 +209,7 @@ export default function AppRoot() {
         }}
         lang={lang}
         theme={theme}
+        onToggleLang={(targetLang) => handleToggleLang(targetLang)}
       />
     );
   }

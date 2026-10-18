@@ -118,7 +118,7 @@ export const GraceRelapseModal: React.FC<GraceRelapseModalProps> = ({
             }`}
           >
             <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-              {lang === "ar" ? "ميخا ٧: ٨" : "Micah 7:8 (NKJV)"}
+              {lang === "ar" ? "ميخا ٧: ٨" : "Micah 7:8"}
             </span>
             <p
               className={`text-xs italic font-serif leading-relaxed ${
@@ -139,7 +139,7 @@ export const GraceRelapseModal: React.FC<GraceRelapseModalProps> = ({
             }`}
           >
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              {lang === "ar" ? "١ يوحنا ١: ٩" : "1 John 1:9 (NKJV)"}
+              {lang === "ar" ? "١ يوحنا ١: ٩" : "1 John 1:9"}
             </span>
             <p
               className={`text-xs italic font-serif leading-relaxed ${

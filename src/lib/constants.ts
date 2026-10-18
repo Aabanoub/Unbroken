@@ -114,7 +114,7 @@ export const BIBLICAL_MILESTONES: Milestone[] = [
     verse: "Matthew 4:1-4",
     verseText: "Man shall not live by bread alone, but by every word that proceeds from the mouth of God.",
     badge: "🦅",
-    description: "40 days in the spiritual wilderness overcoming temptation like Christ with NKJV Scripture."
+    description: "40 days in the spiritual wilderness overcoming temptation like Christ with Scripture."
   },
   {
     days: 90,

@@ -240,7 +240,7 @@ export const ScriptureVault: React.FC<ScriptureVaultProps> = ({
               }`}
             >
               <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider block">
-                {lang === "ar" ? "البحث المباشر في الأسفار:" : "Lookup NKJV Verse via API:"}
+                {lang === "ar" ? "البحث المباشر في الأسفار:" : "Lookup Scripture via API:"}
               </span>
 
               <form onSubmit={handleFetchLiveVerse} className="grid grid-cols-3 gap-2">

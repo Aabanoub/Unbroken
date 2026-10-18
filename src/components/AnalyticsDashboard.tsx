@@ -606,7 +606,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 4. HALT TRIGGER BREAKDOWN (HORIZONTAL BAR CHART)        */}
+      {/* 4. HALT TRIGGER BREAKDOWN (PROGRESS BARS - RTL & LTR)   */}
       {/* ======================================================== */}
       <div
         className={`p-5 rounded-3xl border space-y-4 shadow-xl transition-colors ${
@@ -629,57 +629,39 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </p>
         </div>
 
-        {/* Bar chart */}
-        <div className="h-44 w-full">
-          {isMounted && (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={triggerStats.list.slice(0, 5)}
-                layout="vertical"
-                margin={{ top: 0, right: 20, left: 30, bottom: 0 }}
-              >
-                <XAxis type="number" stroke="#64748B" fontSize={10} hide />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  stroke={isLight ? "#475569" : "#CBD5E1"}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  width={110}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: isLight ? "#FFFFFF" : "#0F172A",
-                    borderColor: isLight ? "#E2E8F0" : "#334155",
-                    borderRadius: "10px",
-                    fontSize: "11px",
-                    color: isLight ? "#0F172A" : "#F1F5F9",
-                  }}
-                  formatter={(val: any) => [
-                    `${val} ${lang === "ar" ? "مرات تكرار" : "occurrences"}`,
-                    lang === "ar" ? "المحفز" : "Triggers",
-                  ]}
-                />
-                <Bar dataKey="count" radius={[0, 8, 8, 0]}>
-                  {triggerStats.list.slice(0, 5).map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        index === 0
-                          ? "#F43F5E"
-                          : index === 1
-                          ? "#F59E0B"
-                          : index === 2
-                          ? "#38BDF8"
-                          : "#10B981"
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+        {/* HALT Trigger Progress Bars (RTL & LTR Native, Zero SVG Clipping) */}
+        <div className="space-y-3.5 pt-1">
+          {triggerStats.list.slice(0, 5).map((entry, index) => {
+            const barColors = [
+              "from-rose-500 to-rose-400",
+              "from-amber-500 to-amber-400",
+              "from-sky-500 to-sky-400",
+              "from-emerald-500 to-emerald-400",
+              "from-indigo-500 to-indigo-400",
+            ];
+            const colorGradient = barColors[index % barColors.length];
+            const maxCount = triggerStats.list[0]?.count || 1;
+            const barWidthPercent = Math.max(12, Math.round((entry.count / maxCount) * 100));
+
+            return (
+              <div key={entry.id} className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className={`truncate max-w-[70%] ${isLight ? "text-slate-800" : "text-slate-200"}`}>
+                    {entry.name}
+                  </span>
+                  <span className={`text-[11px] font-bold ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                    {entry.count} {lang === "ar" ? "مرات" : "logs"} ({entry.percent}%)
+                  </span>
+                </div>
+                <div className={`w-full h-3 rounded-full overflow-hidden ${isLight ? "bg-slate-100" : "bg-slate-800/80"}`}>
+                  <div
+                    className={`h-full bg-gradient-to-r ${colorGradient} rounded-full transition-all duration-500`}
+                    style={{ width: `${barWidthPercent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* AI Actionable Insight Card */}

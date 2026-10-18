@@ -30,19 +30,19 @@ type Stage = 1 | 2 | 3 | 4; // 1: Box Breathing, 2: Sword of Spirit, 3: Pattern 
 
 const SWORD_VERSES_EN = [
   {
-    ref: "1 Corinthians 10:13 (NKJV)",
+    ref: "1 Corinthians 10:13",
     text: "No temptation has overtaken you except such as is common to man; but God is faithful, who will not allow you to be tempted beyond what you are able, but with the temptation will also make the way of escape, that you may be able to bear it."
   },
   {
-    ref: "2 Timothy 2:22 (NKJV)",
+    ref: "2 Timothy 2:22",
     text: "Flee also youthful lusts; but pursue righteousness, faith, love, peace with those who call on the Lord out of a pure heart."
   },
   {
-    ref: "Psalm 119:9, 11 (NKJV)",
+    ref: "Psalm 119:9, 11",
     text: "How can a young man cleanse his way? By taking heed according to Your word... Your word I have hidden in my heart, that I might not sin against You."
   },
   {
-    ref: "Galatians 5:16 (NKJV)",
+    ref: "Galatians 5:16",
     text: "I say then: Walk in the Spirit, and you shall not fulfill the lust of the flesh."
   }
 ];
