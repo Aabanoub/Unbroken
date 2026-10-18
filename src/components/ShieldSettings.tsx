@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   Fingerprint,
+  ScanFace,
   CloudUpload,
   AlertTriangle,
 } from "lucide-react";
@@ -112,6 +113,12 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
 
   const handleToggleBiometrics = async () => {
     const activeId = currentUser?.id || profile.id;
+    if (!profile.pinCode) {
+      setIsEditingPin(true);
+      setBioMsg(t.shield.bioPinRequired);
+      return;
+    }
+
     if (bioEnrolled) {
       disableBiometrics(activeId);
       setBioEnrolled(false);
@@ -147,6 +154,9 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
     onUpdateProfile({ pinCode: null });
     setPinInput("");
     setIsEditingPin(false);
+    const activeId = currentUser?.id || profile.id;
+    disableBiometrics(activeId);
+    setBioEnrolled(false);
   };
 
   const handleToggleDisguise = () => {
@@ -514,7 +524,7 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
       </div>
 
       {/* ======================================================== */}
-      {/* 2.1 BIOMETRIC & FINGERPRINT UNLOCK                       */}
+      {/* 2.1 FACE ID & FINGERPRINT UNLOCK (REQUIRES PIN FIRST)    */}
       {/* ======================================================== */}
       <div
         className={`p-5 rounded-3xl border space-y-4 shadow-xl transition-colors ${
@@ -526,13 +536,13 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+              className={`w-10 h-10 rounded-xl flex items-center justify-center gap-1 border ${
                 isLight
                   ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                   : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
               }`}
             >
-              <Fingerprint className="w-5 h-5" />
+              <ScanFace className="w-5 h-5" />
             </div>
             <div>
               <span
@@ -543,7 +553,9 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
                 {t.shield.bioTitle}
               </span>
               <p className={`text-[11px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
-                {bioSupported
+                {!profile.pinCode
+                  ? t.shield.bioPinRequired
+                  : bioSupported
                   ? bioEnrolled
                     ? t.shield.bioEnrolledStatus
                     : t.shield.bioNotEnrolledStatus
@@ -557,17 +569,21 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
               onClick={handleToggleBiometrics}
               disabled={bioLoading}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
-                bioEnrolled
+                !profile.pinCode
+                  ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700"
+                  : bioEnrolled
                   ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-rose-500/30"
                   : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20"
               }`}
             >
-              <Fingerprint className="w-3.5 h-3.5" />
+              <ScanFace className="w-3.5 h-3.5" />
               <span>
                 {bioLoading
                   ? lang === "ar"
                     ? "جاري المعالجة..."
                     : "Processing..."
+                  : !profile.pinCode
+                  ? t.shield.bioSetPinFirst
                   : bioEnrolled
                   ? t.shield.bioDisable
                   : t.shield.bioEnable}
@@ -575,6 +591,27 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
             </button>
           )}
         </div>
+
+        {!profile.pinCode && (
+          <div
+            className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+              isLight
+                ? "bg-amber-50/90 border-amber-200 text-amber-900"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="text-[11px] leading-snug">{t.shield.bioPinRequired}</span>
+            </div>
+            <button
+              onClick={() => setIsEditingPin(true)}
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] shrink-0 transition-all shadow-sm"
+            >
+              {t.shield.bioSetPinFirst}
+            </button>
+          </div>
+        )}
 
         <p className={`text-[11px] leading-relaxed ${isLight ? "text-slate-500" : "text-slate-400"}`}>
           {t.shield.bioDesc}
@@ -591,8 +628,8 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>
               {lang === "ar"
-                ? "تم تفعيل القفل ببصمة الإصبع أو الوجه لهذا الجهاز. يمكنك النقر على أيقونة البصمة في شاشة القفل لفتح التطبيق فوراً."
-                : "Biometric unlock is ready on this device. Tap the fingerprint icon on the lock screen to unlock instantly."}
+                ? "تم تفعيل القفل بـ Face ID وبصمة الإصبع لهذا الجهاز. يمكنك استخدام Face ID أو البصمة في شاشة القفل لفتح التطبيق فوراً."
+                : "Face ID & Fingerprint unlock is ready on this device. Use Face ID or Fingerprint on the lock screen to unlock instantly."}
             </span>
           </div>
         )}

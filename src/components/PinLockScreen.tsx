@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Lock, Delete, Fingerprint, Sparkles } from "lucide-react";
+import { Lock, Delete, Fingerprint, ScanFace, Sparkles } from "lucide-react";
 import { Language, ThemeMode } from "@/types";
 import { getTranslation } from "@/lib/i18n";
 import { isBiometricsAvailable, authenticateWithBiometrics, isBiometricEnrolled } from "@/lib/biometrics";
@@ -58,8 +58,8 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
       } else if (res.error && !res.error.toLowerCase().includes("cancel")) {
         setBioError(
           lang === "ar"
-            ? "تعذر التحقق من البصمة. يمكنك إدخال الرمز السري."
-            : "Biometric check failed. You can use your PIN code."
+            ? "تعذر التحقق عبر Face ID أو البصمة. يمكنك إدخال الرمز السري."
+            : "Face ID / Biometric check failed. You can use your PIN code."
         );
       }
     } catch {
@@ -166,15 +166,15 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
 
         {bioSupported && !error && !bioError && (
           <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-3 flex items-center justify-center gap-1.5 animate-fade-in">
-            <Fingerprint className="w-3.5 h-3.5" />
+            <ScanFace className="w-3.5 h-3.5" />
             <span>
               {bioAuthenticating
                 ? lang === "ar"
-                  ? "جاري التحقق من البصمة..."
-                  : "Scanning biometric sensor..."
+                  ? "جاري التحقق عبر Face ID أو البصمة..."
+                  : "Scanning Face ID / Fingerprint..."
                 : lang === "ar"
-                ? "يمكنك استخدام البصمة أو الرمز السري"
-                : "Tap fingerprint icon or enter PIN"}
+                ? "يمكنك استخدام Face ID، البصمة، أو رمز PIN"
+                : "Use Face ID, Fingerprint, or PIN"}
             </span>
           </p>
         )}
@@ -202,8 +202,8 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
                 type="button"
                 onClick={handleBiometricUnlock}
                 disabled={bioAuthenticating}
-                title={lang === "ar" ? "فتح القفل بالبصمة" : "Unlock with Fingerprint"}
-                className={`w-16 h-16 rounded-2xl active:scale-95 transition-all flex flex-col items-center justify-center border shadow-md ${
+                title={lang === "ar" ? "فتح القفل بـ Face ID أو البصمة" : "Unlock with Face ID or Fingerprint"}
+                className={`w-16 h-16 rounded-2xl active:scale-95 transition-all flex flex-col items-center justify-center border shadow-md relative ${
                   bioAuthenticating ? "animate-pulse" : ""
                 } ${
                   isLight
@@ -211,7 +211,10 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
                     : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
                 }`}
               >
-                <Fingerprint className="w-7 h-7" />
+                <div className="relative flex items-center justify-center">
+                  <ScanFace className="w-7 h-7" />
+                  <Fingerprint className="w-3.5 h-3.5 absolute -bottom-1 -right-1 text-emerald-500 bg-[#090D16] dark:bg-[#090D16] rounded-full" />
+                </div>
               </button>
             ) : null}
           </div>

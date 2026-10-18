@@ -179,6 +179,8 @@ export interface I18nContent {
     pinSuccess: string;
     bioTitle: string;
     bioDesc: string;
+    bioPinRequired: string;
+    bioSetPinFirst: string;
     bioEnable: string;
     bioDisable: string;
     bioEnrolledStatus: string;
@@ -439,14 +441,16 @@ export const I18N_EN: I18nContent = {
     savePin: "Save PIN",
     cancel: "Cancel",
     pinSuccess: "✓ PIN lock successfully activated!",
-    bioTitle: "Biometric & Fingerprint Unlock",
-    bioDesc: "Unlock your profile instantly with Fingerprint, Touch ID, or Face ID.",
-    bioEnable: "Enable Fingerprint",
+    bioTitle: "Face ID & Fingerprint Unlock",
+    bioDesc: "Unlock your profile instantly using Apple Face ID, Touch ID, or Android Biometrics.",
+    bioPinRequired: "A 4-digit PIN is required first as a backup before enabling Face ID or Fingerprint.",
+    bioSetPinFirst: "Set PIN First",
+    bioEnable: "Enable Face ID / Fingerprint",
     bioDisable: "Disable",
-    bioEnrolledStatus: "Fingerprint unlock is active",
-    bioNotEnrolledStatus: "Tap to configure fingerprint / Face ID",
-    bioNotSupported: "Biometric sensor is not available on this device or browser. You can use your 4-digit PIN.",
-    bioSuccess: "✓ Biometric authentication registered successfully!",
+    bioEnrolledStatus: "Face ID & Fingerprint unlock is active",
+    bioNotEnrolledStatus: "Tap to configure Face ID or Fingerprint",
+    bioNotSupported: "Biometric sensor (Face ID / Fingerprint) is not available on this device or browser.",
+    bioSuccess: "✓ Face ID & Biometrics registered successfully!",
     disguiseTitle: "Disguise Header as 'Daily Habits'",
     disguiseDesc: "Hides recovery wording on the lock and header bar",
     disguiseInfo: "When enabled, the app title displays as 'Daily Habits' so friends or family glancing over your shoulder will not see addiction recovery branding.",
@@ -701,14 +705,16 @@ export const I18N_AR: I18nContent = {
     savePin: "حفظ الرمز",
     cancel: "إلغاء",
     pinSuccess: "✓ تم تفعيل قفل الرمز السري بنجاح!",
-    bioTitle: "فتح القفل ببصمة الإصبع / Face ID",
-    bioDesc: "افتح ملفك الشخصي فوراً باستخدام بصمة الإصبع، Touch ID، أو بصمة الوجه.",
-    bioEnable: "تفعيل البصمة",
+    bioTitle: "فتح القفل بـ Face ID وبصمة الإصبع",
+    bioDesc: "افتح ملفك الشخصي فوراً باستخدام بصمة الوجه (Face ID)، Touch ID، أو بصمة الإصبع.",
+    bioPinRequired: "يجب تعيين رمز PIN من ٤ أرقام أولاً كنسخة احتياطية قبل تفعيل Face ID أو البصمة.",
+    bioSetPinFirst: "عيّن الرمز أولاً",
+    bioEnable: "تفعيل Face ID / البصمة",
     bioDisable: "إلغاء التفعيل",
-    bioEnrolledStatus: "قفل البصمة مفعل وجاهز",
-    bioNotEnrolledStatus: "اضغط لتفعيل البصمة أو التعرف على الوجه",
-    bioNotSupported: "مستشعر البصمة غير متاح على هذا الجهاز أو المتصفح. يمكنك استخدام الرمز السري المكون من ٤ أرقام.",
-    bioSuccess: "✓ تم تفعيل التحقق بالبصمة بنجاح!",
+    bioEnrolledStatus: "قفل Face ID والبصمة مفعّل وجاهز",
+    bioNotEnrolledStatus: "اضغط لتفعيل Face ID أو بصمة الإصبع",
+    bioNotSupported: "مستشعر Face ID أو البصمة غير متاح على هذا المتصفح أو الجهاز.",
+    bioSuccess: "✓ تم تفعيل التحقق بـ Face ID والبصمة بنجاح!",
     disguiseTitle: "تمويه اسم التطبيق إلى 'العادات اليومية'",
     disguiseDesc: "يخفي عبارات التعافي والإدمان من الشريط العلوي وقفل الشاشة",
     disguiseInfo: "عند التفعيل، يظهر اسم التطبيق كـ 'العادات اليومية' حتى لا يرى الأصدقاء أو العائلة أي ذكر لموضوع الإدمان عند النظر إلى شاشتك.",
