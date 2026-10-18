@@ -177,6 +177,14 @@ export interface I18nContent {
     savePin: string;
     cancel: string;
     pinSuccess: string;
+    bioTitle: string;
+    bioDesc: string;
+    bioEnable: string;
+    bioDisable: string;
+    bioEnrolledStatus: string;
+    bioNotEnrolledStatus: string;
+    bioNotSupported: string;
+    bioSuccess: string;
     disguiseTitle: string;
     disguiseDesc: string;
     disguiseInfo: string;
@@ -431,6 +439,14 @@ export const I18N_EN: I18nContent = {
     savePin: "Save PIN",
     cancel: "Cancel",
     pinSuccess: "✓ PIN lock successfully activated!",
+    bioTitle: "Biometric & Fingerprint Unlock",
+    bioDesc: "Unlock your profile instantly with Fingerprint, Touch ID, or Face ID.",
+    bioEnable: "Enable Fingerprint",
+    bioDisable: "Disable",
+    bioEnrolledStatus: "Fingerprint unlock is active",
+    bioNotEnrolledStatus: "Tap to configure fingerprint / Face ID",
+    bioNotSupported: "Biometric sensor is not available on this device or browser. You can use your 4-digit PIN.",
+    bioSuccess: "✓ Biometric authentication registered successfully!",
     disguiseTitle: "Disguise Header as 'Daily Habits'",
     disguiseDesc: "Hides recovery wording on the lock and header bar",
     disguiseInfo: "When enabled, the app title displays as 'Daily Habits' so friends or family glancing over your shoulder will not see addiction recovery branding.",
@@ -685,6 +701,14 @@ export const I18N_AR: I18nContent = {
     savePin: "حفظ الرمز",
     cancel: "إلغاء",
     pinSuccess: "✓ تم تفعيل قفل الرمز السري بنجاح!",
+    bioTitle: "فتح القفل ببصمة الإصبع / Face ID",
+    bioDesc: "افتح ملفك الشخصي فوراً باستخدام بصمة الإصبع، Touch ID، أو بصمة الوجه.",
+    bioEnable: "تفعيل البصمة",
+    bioDisable: "إلغاء التفعيل",
+    bioEnrolledStatus: "قفل البصمة مفعل وجاهز",
+    bioNotEnrolledStatus: "اضغط لتفعيل البصمة أو التعرف على الوجه",
+    bioNotSupported: "مستشعر البصمة غير متاح على هذا الجهاز أو المتصفح. يمكنك استخدام الرمز السري المكون من ٤ أرقام.",
+    bioSuccess: "✓ تم تفعيل التحقق بالبصمة بنجاح!",
     disguiseTitle: "تمويه اسم التطبيق إلى 'العادات اليومية'",
     disguiseDesc: "يخفي عبارات التعافي والإدمان من الشريط العلوي وقفل الشاشة",
     disguiseInfo: "عند التفعيل، يظهر اسم التطبيق كـ 'العادات اليومية' حتى لا يرى الأصدقاء أو العائلة أي ذكر لموضوع الإدمان عند النظر إلى شاشتك.",

@@ -210,6 +210,7 @@ export default function AppRoot() {
         }}
         lang={lang}
         theme={theme}
+        userId={currentUser.id}
       />
     );
   }

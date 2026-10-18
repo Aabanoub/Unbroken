@@ -1,9 +1,8 @@
-"use client";
-
-import React, { useState } from "react";
-import { Lock, Delete } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Lock, Delete, Fingerprint, Sparkles } from "lucide-react";
 import { Language, ThemeMode } from "@/types";
 import { getTranslation } from "@/lib/i18n";
+import { isBiometricsAvailable, authenticateWithBiometrics, isBiometricEnrolled } from "@/lib/biometrics";
 
 interface PinLockScreenProps {
   correctPin: string;
@@ -12,6 +11,7 @@ interface PinLockScreenProps {
   onResetPin?: () => void;
   lang?: Language;
   theme?: ThemeMode;
+  userId?: string;
 }
 
 export const PinLockScreen: React.FC<PinLockScreenProps> = ({
@@ -21,13 +21,53 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
   onResetPin,
   lang = "en",
   theme = "dark",
+  userId = "default",
 }) => {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioAuthenticating, setBioAuthenticating] = useState(false);
+  const [bioError, setBioError] = useState<string | null>(null);
 
   const t = getTranslation(lang);
   const isLight = theme === "light";
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    isBiometricsAvailable().then((supported) => {
+      setBioSupported(supported);
+      if (supported && isBiometricEnrolled(userId)) {
+        timer = setTimeout(() => {
+          handleBiometricUnlock();
+        }, 350);
+      }
+    });
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [userId]);
+
+  const handleBiometricUnlock = async () => {
+    setBioAuthenticating(true);
+    setBioError(null);
+    try {
+      const res = await authenticateWithBiometrics(userId);
+      if (res.success) {
+        onUnlock();
+      } else if (res.error && !res.error.toLowerCase().includes("cancel")) {
+        setBioError(
+          lang === "ar"
+            ? "تعذر التحقق من البصمة. يمكنك إدخال الرمز السري."
+            : "Biometric check failed. You can use your PIN code."
+        );
+      }
+    } catch {
+      // ignore cancellation
+    } finally {
+      setBioAuthenticating(false);
+    }
+  };
 
   const handleDigit = (digit: string) => {
     if (pin.length >= 4) return;
@@ -117,6 +157,27 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
             {lang === "ar" ? "الرمز غير صحيح. يرجى المحاولة مرة أخرى." : "Incorrect PIN. Try again."}
           </p>
         )}
+
+        {bioError && (
+          <p className="text-xs text-amber-500 font-medium mt-3 animate-fade-in px-4">
+            {bioError}
+          </p>
+        )}
+
+        {bioSupported && !error && !bioError && (
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-3 flex items-center justify-center gap-1.5 animate-fade-in">
+            <Fingerprint className="w-3.5 h-3.5" />
+            <span>
+              {bioAuthenticating
+                ? lang === "ar"
+                  ? "جاري التحقق من البصمة..."
+                  : "Scanning biometric sensor..."
+                : lang === "ar"
+                ? "يمكنك استخدام البصمة أو الرمز السري"
+                : "Tap fingerprint icon or enter PIN"}
+            </span>
+          </p>
+        )}
       </div>
 
       {/* Keypad */}
@@ -136,7 +197,23 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
             </button>
           ))}
           <div className="flex items-center justify-center">
-            {/* Blank placeholder for alignment */}
+            {bioSupported ? (
+              <button
+                type="button"
+                onClick={handleBiometricUnlock}
+                disabled={bioAuthenticating}
+                title={lang === "ar" ? "فتح القفل بالبصمة" : "Unlock with Fingerprint"}
+                className={`w-16 h-16 rounded-2xl active:scale-95 transition-all flex flex-col items-center justify-center border shadow-md ${
+                  bioAuthenticating ? "animate-pulse" : ""
+                } ${
+                  isLight
+                    ? "bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 shadow-emerald-50"
+                    : "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-400"
+                }`}
+              >
+                <Fingerprint className="w-7 h-7" />
+              </button>
+            ) : null}
           </div>
           <button
             onClick={() => handleDigit("0")}

@@ -1,9 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { UserProfile, AuthUser, Language, ThemeMode } from "@/types";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getTranslation } from "@/lib/i18n";
+import {
+  isBiometricsAvailable,
+  isBiometricEnrolled,
+  enrollBiometrics,
+  disableBiometrics,
+} from "@/lib/biometrics";
 import {
   Shield,
   Lock,
@@ -21,6 +27,7 @@ import {
   Globe,
   Sun,
   Moon,
+  Fingerprint,
 } from "lucide-react";
 
 interface ShieldSettingsProps {
@@ -55,9 +62,47 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
   const [pinSavedMsg, setPinSavedMsg] = useState(false);
   const [showScienceModal, setShowScienceModal] = useState(false);
   const [confirmFreshModal, setConfirmFreshModal] = useState(false);
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioEnrolled, setBioEnrolled] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
+  const [bioMsg, setBioMsg] = useState<string | null>(null);
 
   const t = getTranslation(lang);
   const isLight = theme === "light";
+
+  useEffect(() => {
+    const activeId = currentUser?.id || profile.id;
+    isBiometricsAvailable().then((supported) => {
+      setBioSupported(supported);
+      if (supported) {
+        setBioEnrolled(isBiometricEnrolled(activeId));
+      }
+    });
+  }, [currentUser?.id, profile.id]);
+
+  const handleToggleBiometrics = async () => {
+    const activeId = currentUser?.id || profile.id;
+    if (bioEnrolled) {
+      disableBiometrics(activeId);
+      setBioEnrolled(false);
+      setBioMsg(null);
+    } else {
+      setBioLoading(true);
+      setBioMsg(null);
+      const res = await enrollBiometrics(
+        activeId,
+        profile.displayName || currentUser?.displayName || "Disciple"
+      );
+      setBioLoading(false);
+      if (res.success) {
+        setBioEnrolled(true);
+        setBioMsg(t.shield.bioSuccess);
+        setTimeout(() => setBioMsg(null), 3000);
+      } else if (res.error) {
+        setBioMsg(res.error);
+      }
+    }
+  };
 
   const handleSavePin = () => {
     if (pinInput.length === 4 && /^\d+$/.test(pinInput)) {
@@ -434,6 +479,103 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
         {pinSavedMsg && (
           <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
             {t.shield.pinSuccess}
+          </p>
+        )}
+      </div>
+
+      {/* ======================================================== */}
+      {/* 2.1 BIOMETRIC & FINGERPRINT UNLOCK                       */}
+      {/* ======================================================== */}
+      <div
+        className={`p-5 rounded-3xl border space-y-4 shadow-xl transition-colors ${
+          isLight
+            ? "bg-white border-slate-200 text-slate-800 shadow-slate-200/50"
+            : "bg-slate-900/90 border-slate-800"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
+                isLight
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+              }`}
+            >
+              <Fingerprint className="w-5 h-5" />
+            </div>
+            <div>
+              <span
+                className={`text-xs font-bold uppercase tracking-wider ${
+                  isLight ? "text-slate-900" : "text-white"
+                }`}
+              >
+                {t.shield.bioTitle}
+              </span>
+              <p className={`text-[11px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                {bioSupported
+                  ? bioEnrolled
+                    ? t.shield.bioEnrolledStatus
+                    : t.shield.bioNotEnrolledStatus
+                  : t.shield.bioNotSupported}
+              </p>
+            </div>
+          </div>
+
+          {bioSupported && (
+            <button
+              onClick={handleToggleBiometrics}
+              disabled={bioLoading}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                bioEnrolled
+                  ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-rose-500/30"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/20"
+              }`}
+            >
+              <Fingerprint className="w-3.5 h-3.5" />
+              <span>
+                {bioLoading
+                  ? lang === "ar"
+                    ? "جاري المعالجة..."
+                    : "Processing..."
+                  : bioEnrolled
+                  ? t.shield.bioDisable
+                  : t.shield.bioEnable}
+              </span>
+            </button>
+          )}
+        </div>
+
+        <p className={`text-[11px] leading-relaxed ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+          {t.shield.bioDesc}
+        </p>
+
+        {bioEnrolled && (
+          <div
+            className={`p-3 rounded-2xl border flex items-center gap-2 text-xs ${
+              isLight
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-emerald-950/30 border-emerald-800/40 text-emerald-300"
+            }`}
+          >
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>
+              {lang === "ar"
+                ? "تم تفعيل القفل ببصمة الإصبع أو الوجه لهذا الجهاز. يمكنك النقر على أيقونة البصمة في شاشة القفل لفتح التطبيق فوراً."
+                : "Biometric unlock is ready on this device. Tap the fingerprint icon on the lock screen to unlock instantly."}
+            </span>
+          </div>
+        )}
+
+        {bioMsg && (
+          <p
+            className={`text-[11px] font-semibold animate-fade-in ${
+              bioMsg.startsWith("✓")
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-amber-500"
+            }`}
+          >
+            {bioMsg}
           </p>
         )}
       </div>
