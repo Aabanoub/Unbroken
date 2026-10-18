@@ -196,7 +196,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
         {/* Subtle background glow */}
         <div className="absolute top-0 w-44 h-44 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative w-48 h-48 flex items-center justify-center my-1">
+        <div className="relative w-56 h-56 flex items-center justify-center my-2">
           {/* SVG Progress Ring */}
           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 160 160">
             {/* Background Track */}
@@ -232,21 +232,21 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
           </svg>
 
           {/* Central Counter */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <div className="flex items-center gap-1 text-amber-500">
-              <Flame className="w-4 h-4 fill-amber-500" />
-              <span className="text-[11px] font-bold uppercase tracking-wider">
-                {t.home.currentStreak}
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+            <div className="flex items-center justify-center gap-1 text-amber-500 mb-0.5">
+              <Flame className="w-4 h-4 fill-amber-500 shrink-0" />
+              <span className="text-[11px] font-black uppercase tracking-wider whitespace-nowrap">
+                {lang === "ar" ? "سلسلة الطهارة" : "Current Streak"}
               </span>
             </div>
             <div
-              className={`text-4xl font-black tracking-tight mt-0.5 ${
+              className={`text-5xl font-black tracking-tight leading-none my-1 ${
                 isLight ? "text-slate-900" : "text-white"
               }`}
             >
               {timeUnits.days}
               <span
-                className={`text-base font-bold ml-0.5 ${
+                className={`text-base font-bold ml-1 ${
                   isLight ? "text-slate-500" : "text-slate-400"
                 }`}
               >
@@ -254,7 +254,7 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               </span>
             </div>
             <div
-              className={`text-xs font-mono mt-0.5 ${
+              className={`text-xs font-mono font-medium mt-0.5 ${
                 isLight ? "text-slate-500" : "text-slate-400"
               }`}
             >
