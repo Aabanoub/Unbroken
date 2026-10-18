@@ -18,6 +18,7 @@ import {
   setGlobalLanguage,
   getGlobalTheme,
   setGlobalTheme,
+  syncUserDataFromCloud,
 } from "@/lib/storage";
 import { getTranslation } from "@/lib/i18n";
 import { LoginPage } from "@/components/LoginPage";
@@ -71,34 +72,50 @@ export default function AppRoot() {
     }
   }, []);
 
-  const loadUserData = (user: AuthUser) => {
+  const loadUserData = async (user: AuthUser) => {
     setCurrentUser(user);
-    const userProfile = getUserProfile(user.id);
-    const userLogs = getUserDailyLogs(user.id);
-    const userVerses = getUserSavedVerses(user.id);
 
-    setProfile(userProfile);
-    setDailyLogs(userLogs);
-    setSavedVerses(userVerses);
+    // Initial local read
+    const localProfile = getUserProfile(user.id);
+    const localLogs = getUserDailyLogs(user.id);
+    const localVerses = getUserSavedVerses(user.id);
 
-    // Apply saved user preferences if available
-    if (userProfile.language) {
-      setLang(userProfile.language);
-      setGlobalLanguage(userProfile.language);
+    setProfile(localProfile);
+    setDailyLogs(localLogs);
+    setSavedVerses(localVerses);
+
+    if (localProfile.language) {
+      setLang(localProfile.language);
+      setGlobalLanguage(localProfile.language);
     }
-    if (userProfile.theme) {
-      setTheme(userProfile.theme);
-      setGlobalTheme(userProfile.theme);
+    if (localProfile.theme) {
+      setTheme(localProfile.theme);
+      setGlobalTheme(localProfile.theme);
     }
-
-    // If PIN is enabled for this user, lock by default
-    if (userProfile.pinCode) {
+    if (localProfile.pinCode) {
       setIsUnlocked(false);
     } else {
       setIsUnlocked(true);
     }
 
     setAuthChecking(false);
+
+    // Cross-Device Cloud Sync: If user is connected to Supabase, pull fresh cloud data
+    if (!user.isGuest) {
+      const cloudData = await syncUserDataFromCloud(user.id);
+      setProfile(cloudData.profile);
+      setDailyLogs(cloudData.dailyLogs);
+      setSavedVerses(cloudData.savedVerses);
+
+      if (cloudData.profile.language) {
+        setLang(cloudData.profile.language);
+        setGlobalLanguage(cloudData.profile.language);
+      }
+      if (cloudData.profile.theme) {
+        setTheme(cloudData.profile.theme);
+        setGlobalTheme(cloudData.profile.theme);
+      }
+    }
   };
 
   const handleAuthSuccess = (user: AuthUser) => {

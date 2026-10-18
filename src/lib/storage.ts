@@ -255,6 +255,28 @@ export async function registerNewUser(
           displayName: cleanName,
           isGuest: false,
         };
+
+        // Create initial profile for this user in Supabase and LocalStorage
+        const initialProfile: UserProfile = {
+          id: data.user.id,
+          displayName: cleanName,
+          onboardingCompleted: false,
+          onboardingScore: 0,
+          currentAddictionIndex: 0,
+          addictionTier: "Level 1 — Mild Habitual Loop",
+          goalDays: 21,
+          initialDopamineSensitivity: 70,
+          streakStartTimestamp: new Date().toISOString(),
+          longestStreakDays: 0,
+          urgesDefeatedCount: 0,
+          pinCode: null,
+          disguiseTitle: false,
+          language: "en",
+          theme: "dark",
+          createdAt: new Date().toISOString(),
+        };
+
+        saveUserProfile(data.user.id, initialProfile);
         saveCurrentSession(authUser);
         return { success: true, user: authUser };
       } else if (error) {
@@ -578,6 +600,120 @@ export function removeUserVerse(userId: string, id: string): void {
       console.error("Local storage error:", err);
     }
   }
+
+  if (isSupabaseConfigured && supabase) {
+    supabase
+      .from("saved_verses")
+      .delete()
+      .eq("user_id", userId)
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Supabase remove verse warning:", error.message);
+      });
+  }
+}
+
+// -----------------------------------------------------------------------------
+// CLOUD DATA REHYDRATION (CROSS-DEVICE SYNC)
+// -----------------------------------------------------------------------------
+export async function syncUserDataFromCloud(userId: string): Promise<{
+  profile: UserProfile;
+  dailyLogs: DailyLog[];
+  savedVerses: SavedVerse[];
+}> {
+  // Always get initial local data first
+  let profile = getUserProfile(userId);
+  let dailyLogs = getUserDailyLogs(userId);
+  let savedVerses = getUserSavedVerses(userId);
+
+  if (!isSupabaseConfigured || !supabase || userId === DEMO_USER.id) {
+    return { profile, dailyLogs, savedVerses };
+  }
+
+  try {
+    // 1. Fetch Profile from Supabase
+    const { data: pData, error: pError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (!pError && pData) {
+      profile = {
+        id: pData.id,
+        displayName: pData.display_name || profile.displayName || "Disciple",
+        onboardingCompleted: (pData.onboarding_score > 0) || (pData.goal_days > 0),
+        onboardingScore: pData.onboarding_score || 0,
+        currentAddictionIndex: Number(pData.current_addiction_index || 0),
+        addictionTier: pData.addiction_tier || profile.addictionTier,
+        goalDays: pData.goal_days || 21,
+        initialDopamineSensitivity: profile.initialDopamineSensitivity || 70,
+        streakStartTimestamp: pData.streak_start_timestamp || profile.streakStartTimestamp,
+        longestStreakDays: pData.longest_streak_days || 0,
+        urgesDefeatedCount: pData.urges_defeated_count || 0,
+        pinCode: pData.pin_code || null,
+        disguiseTitle: Boolean(pData.disguise_title),
+        language: profile.language || "en",
+        theme: profile.theme || "dark",
+        createdAt: pData.created_at || profile.createdAt,
+      };
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEYS.PROFILE(userId), JSON.stringify(profile));
+      }
+    }
+
+    // 2. Fetch Daily Logs from Supabase
+    const { data: lData, error: lError } = await supabase
+      .from("daily_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("log_date", { ascending: true });
+
+    if (!lError && lData && lData.length > 0) {
+      dailyLogs = lData.map((l: any) => ({
+        id: l.id,
+        userId: l.user_id,
+        logDate: l.log_date,
+        status: l.status,
+        urgeIntensity: l.urge_intensity,
+        triggers: l.triggers || [],
+        timeOfDay: l.time_of_day || "Evening",
+        journalNote: l.journal_note || "",
+        createdAt: l.created_at,
+      }));
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEYS.LOGS(userId), JSON.stringify(dailyLogs));
+      }
+    }
+
+    // 3. Fetch Saved Verses from Supabase
+    const { data: vData, error: vError } = await supabase
+      .from("saved_verses")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (!vError && vData && vData.length > 0) {
+      savedVerses = vData.map((v: any) => ({
+        id: v.id,
+        userId: v.user_id,
+        reference: v.reference,
+        verseText: v.verse_text,
+        personalReflection: v.personal_reflection || "",
+        createdAt: v.created_at,
+      }));
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEYS.SAVED_VERSES(userId), JSON.stringify(savedVerses));
+      }
+    }
+  } catch (err) {
+    console.warn("Supabase cross-device sync warning:", err);
+  }
+
+  return { profile, dailyLogs, savedVerses };
 }
 
 // -----------------------------------------------------------------------------
