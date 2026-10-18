@@ -8,7 +8,7 @@ import {
   loginAsDemoGuest,
 } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getTranslation } from "@/lib/i18n";
+import { getTranslation, getLocalizedErrorMessage } from "@/lib/i18n";
 import {
   Shield,
   Lock,
@@ -74,22 +74,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         if (res.success && res.user) {
           onAuthSuccess(res.user);
         } else {
-          setErrorMessage(
-            res.error || (lang === "ar" ? "فشل تسجيل الدخول. يرجى التحقق من بياناتك." : "Authentication failed. Please check your credentials.")
-          );
+          setErrorMessage(getLocalizedErrorMessage(res.error, lang) || t.auth.errNoAccount);
         }
       } else {
         const res = await registerNewUser(email, password, displayName);
         if (res.success && res.user) {
           onAuthSuccess(res.user);
         } else {
-          setErrorMessage(
-            res.error || (lang === "ar" ? "تعذر إنشاء الحساب. يرجى المحاولة مرة أخرى." : "Failed to create account. Please try again.")
-          );
+          setErrorMessage(getLocalizedErrorMessage(res.error, lang) || t.auth.errGeneral);
         }
       }
     } catch (err: any) {
-      setErrorMessage(err.message || (lang === "ar" ? "حدث خطأ غير متوقع." : "An unexpected error occurred."));
+      setErrorMessage(getLocalizedErrorMessage(err.message, lang) || t.auth.errGeneral);
     } finally {
       setLoading(false);
     }

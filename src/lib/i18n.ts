@@ -230,6 +230,12 @@ export interface I18nContent {
     offlineActive: string;
     errEmpty: string;
     errPassShort: string;
+    errNoAccount: string;
+    errWrongPass: string;
+    errAccountExists: string;
+    errRateLimit: string;
+    errEmailNotConfirmed: string;
+    errGeneral: string;
   };
   onboarding: {
     badge: string;
@@ -478,6 +484,12 @@ export const I18N_EN: I18nContent = {
     offlineActive: "Offline Multi-User Storage Active",
     errEmpty: "Please enter both email and password.",
     errPassShort: "Password must be at least 6 characters long.",
+    errNoAccount: "No account found with this email. Please create an account.",
+    errWrongPass: "Incorrect password. Please try again.",
+    errAccountExists: "An account with this email already exists. Please sign in.",
+    errRateLimit: "Too many requests. Please wait a moment or sign in with your saved password.",
+    errEmailNotConfirmed: "Email confirmation is pending. Please sign in with your password.",
+    errGeneral: "An unexpected error occurred. Please try again.",
   },
   onboarding: {
     badge: "Diagnostic Baseline",
@@ -726,6 +738,12 @@ export const I18N_AR: I18nContent = {
     offlineActive: "تخزين محلي معزول متعدد المستخدمين",
     errEmpty: "يرجى إدخال البريد الإلكتروني وكلمة المرور.",
     errPassShort: "يجب ألا تقل كلمة المرور عن ٦ أحرف.",
+    errNoAccount: "لم يتم العثور على حساب بهذا البريد. يرجى إنشاء حساب جديد.",
+    errWrongPass: "كلمة المرور غير صحيحة. يرجى إعادة المحاولة.",
+    errAccountExists: "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني. يرجى تسجيل الدخول.",
+    errRateLimit: "تم إرسال طلبات كثيرة مؤخراً. يرجى الانتظار قليلاً أو الدخول بكلمة المرور المسجلة.",
+    errEmailNotConfirmed: "جاري تأكيد البريد الإلكتروني. يرجى تسجيل الدخول بكلمة المرور.",
+    errGeneral: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
   },
   onboarding: {
     badge: "التقييم التشخيصي الأساسي",
@@ -1063,4 +1081,38 @@ export function getLocalizedLikert(lang: Language) {
     { value: 3, label: "غالباً", description: "٣-٥ مرات في الأسبوع" },
     { value: 4, label: "دائماً تقريباً", description: "بشكل يومي مستمر" }
   ];
+}
+
+export function getLocalizedErrorMessage(rawError: string | undefined | null, lang: Language): string {
+  if (!rawError) return "";
+  if (lang !== "ar") return rawError;
+
+  const lower = rawError.toLowerCase();
+
+  if (lower.includes("no account found") || lower.includes("user not found")) {
+    return "لم يتم العثور على حساب بهذا البريد. يرجى إنشاء حساب جديد.";
+  }
+  if (lower.includes("incorrect password") || lower.includes("invalid login credentials") || lower.includes("invalid_credentials")) {
+    return "كلمة المرور غير صحيحة. يرجى إعادة المحاولة.";
+  }
+  if (lower.includes("already exists") || lower.includes("user already registered") || lower.includes("email already in use")) {
+    return "يوجد حساب مسجل بالفعل بهذا البريد الإلكتروني. يرجى تسجيل الدخول.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many requests") || lower.includes("over_email_send_rate_limit")) {
+    return "تم إرسال طلبات كثيرة مؤخراً. يرجى الانتظار دقيقة أو الدخول ببياناتك المسجلة.";
+  }
+  if (lower.includes("email not confirmed") || lower.includes("not confirmed")) {
+    return "جاري تأكيد الحساب. يمكنك الآن الدخول مباشرة بكلمة المرور الخاصة بك.";
+  }
+  if (lower.includes("at least 6 characters") || lower.includes("password should be at least")) {
+    return "يجب ألا تقل كلمة المرور عن ٦ أحرف.";
+  }
+  if (lower.includes("empty") || lower.includes("enter both email and password")) {
+    return "يرجى إدخال البريد الإلكتروني وكلمة المرور.";
+  }
+  if (lower.includes("network") || lower.includes("failed to fetch")) {
+    return "تعذر الاتصال بالشبكة. يرجى التحقق من اتصالك بالإنترنت.";
+  }
+
+  return rawError;
 }
