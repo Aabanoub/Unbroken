@@ -10,6 +10,7 @@ import {
   enrollBiometrics,
   disableBiometrics,
 } from "@/lib/biometrics";
+import { pushLocalDataToSupabase } from "@/lib/storage";
 import {
   Shield,
   Lock,
@@ -28,6 +29,8 @@ import {
   Sun,
   Moon,
   Fingerprint,
+  CloudUpload,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ShieldSettingsProps {
@@ -66,9 +69,36 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
   const [bioEnrolled, setBioEnrolled] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
   const [bioMsg, setBioMsg] = useState<string | null>(null);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [syncCloudResult, setSyncCloudResult] = useState<{
+    success: boolean;
+    logs?: number;
+    verses?: number;
+    error?: string;
+  } | null>(null);
 
   const t = getTranslation(lang);
   const isLight = theme === "light";
+
+  const handleSyncToSupabase = async () => {
+    setIsSyncingCloud(true);
+    setSyncCloudResult(null);
+    const activeId = currentUser?.id || profile.id;
+    const res = await pushLocalDataToSupabase(activeId);
+    setIsSyncingCloud(false);
+    if (res.success) {
+      setSyncCloudResult({
+        success: true,
+        logs: res.logsCount,
+        verses: res.versesCount,
+      });
+    } else {
+      setSyncCloudResult({
+        success: false,
+        error: res.error,
+      });
+    }
+  };
 
   useEffect(() => {
     const activeId = currentUser?.id || profile.id;
@@ -696,6 +726,60 @@ export const ShieldSettings: React.FC<ShieldSettingsProps> = ({
         <p className={`text-xs leading-relaxed ${isLight ? "text-slate-600" : "text-slate-300"}`}>
           {isSupabaseConfigured ? t.shield.supabaseDesc : t.shield.localStorageDesc}
         </p>
+
+        {isSupabaseConfigured && (
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+            <button
+              onClick={handleSyncToSupabase}
+              disabled={isSyncingCloud}
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+                isLight
+                  ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border-indigo-200"
+                  : "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/30"
+              }`}
+            >
+              <CloudUpload className={`w-4 h-4 ${isSyncingCloud ? "animate-spin" : ""}`} />
+              <span>
+                {isSyncingCloud
+                  ? lang === "ar"
+                    ? "جاري رفع البيانات إلى Supabase..."
+                    : "Uploading data to Supabase..."
+                  : lang === "ar"
+                  ? "مزامنة ورفع كافة بياناتي مع Supabase الآن"
+                  : "Sync All My Data to Supabase Now"}
+              </span>
+            </button>
+
+            {syncCloudResult && (
+              <div
+                className={`p-3 rounded-xl text-xs border animate-fade-in ${
+                  syncCloudResult.success
+                    ? isLight
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-emerald-950/40 text-emerald-300 border-emerald-800/40"
+                    : isLight
+                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                    : "bg-rose-950/40 text-rose-300 border-rose-800/40"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold">
+                  {syncCloudResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                  )}
+                  <span>
+                    {syncCloudResult.success
+                      ? lang === "ar"
+                        ? `✓ تم رفع الملف الشخصي و ${syncCloudResult.logs} تقرير يومي و ${syncCloudResult.verses} آية إلى Supabase بنجاح!`
+                        : `✓ Successfully uploaded profile, ${syncCloudResult.logs} logs, and ${syncCloudResult.verses} verses to Supabase!`
+                      : syncCloudResult.error}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ======================================================== */}

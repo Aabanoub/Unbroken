@@ -20,6 +20,17 @@ export interface LocalUserAccount {
   createdAt: string;
 }
 
+export function generateSecureUuid(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 // Default Demo User for instant preview
 export const DEMO_USER: AuthUser = {
   id: "demo-teen-user-01",
@@ -321,7 +332,7 @@ export async function registerNewUser(
     return { success: false, error: "An account with this email already exists. Please log in." };
   }
 
-  const newId = `user-${Date.now()}`;
+  const newId = generateSecureUuid();
   const newAccount: LocalUserAccount = {
     id: newId,
     email: cleanEmail,
@@ -519,7 +530,7 @@ export function saveUserDailyLog(
   const created: DailyLog = {
     ...newLog,
     userId,
-    id: `log-${Date.now()}`,
+    id: generateSecureUuid(),
     createdAt: new Date().toISOString()
   };
 
@@ -542,7 +553,7 @@ export function saveUserDailyLog(
     supabase
       .from("daily_logs")
       .upsert({
-        id: created.id.includes("log-") ? undefined : created.id,
+        id: created.id,
         user_id: created.userId,
         log_date: created.logDate,
         status: created.status,
@@ -587,7 +598,7 @@ export function saveUserVerse(
   const created: SavedVerse = {
     ...verse,
     userId,
-    id: `v-${Date.now()}`,
+    id: generateSecureUuid(),
     createdAt: new Date().toISOString()
   };
 
@@ -604,7 +615,8 @@ export function saveUserVerse(
   if (isSupabaseConfigured && supabase) {
     supabase
       .from("saved_verses")
-      .insert({
+      .upsert({
+        id: created.id,
         user_id: created.userId,
         reference: created.reference,
         verse_text: created.verseText,
@@ -637,6 +649,120 @@ export function removeUserVerse(userId: string, id: string): void {
       .then(({ error }) => {
         if (error) console.warn("Supabase remove verse warning:", error.message);
       });
+  }
+}
+
+// -----------------------------------------------------------------------------
+// PUSH LOCAL DATA TO SUPABASE (FORCE MANUAL OR INITIAL SYNC)
+// -----------------------------------------------------------------------------
+export async function pushLocalDataToSupabase(userId: string): Promise<{
+  success: boolean;
+  profileSynced: boolean;
+  logsCount: number;
+  versesCount: number;
+  error?: string;
+}> {
+  if (!isSupabaseConfigured || !supabase) {
+    return {
+      success: false,
+      profileSynced: false,
+      logsCount: 0,
+      versesCount: 0,
+      error: "Supabase is not configured in .env.local",
+    };
+  }
+
+  try {
+    const profile = getUserProfile(userId);
+    const logs = getUserDailyLogs(userId);
+    const verses = getUserSavedVerses(userId);
+
+    // 1. Sync Profile
+    const { error: pError } = await supabase.from("profiles").upsert({
+      id: profile.id,
+      display_name: profile.displayName,
+      onboarding_score: profile.onboardingScore,
+      current_addiction_index: profile.currentAddictionIndex,
+      addiction_tier: profile.addictionTier,
+      goal_days: profile.goalDays,
+      streak_start_timestamp: profile.streakStartTimestamp,
+      longest_streak_days: profile.longestStreakDays,
+      urges_defeated_count: profile.urgesDefeatedCount,
+      pin_code: profile.pinCode,
+      disguise_title: profile.disguiseTitle,
+    });
+
+    if (pError) {
+      return {
+        success: false,
+        profileSynced: false,
+        logsCount: 0,
+        versesCount: 0,
+        error: `Profiles table rejected sync: ${pError.message} (${pError.code})`,
+      };
+    }
+
+    // 2. Sync Daily Logs
+    let syncedLogs = 0;
+    for (const log of logs) {
+      const { error: lError } = await supabase.from("daily_logs").upsert({
+        id: log.id,
+        user_id: log.userId,
+        log_date: log.logDate,
+        status: log.status,
+        urge_intensity: log.urgeIntensity,
+        triggers: log.triggers,
+        time_of_day: log.timeOfDay,
+        journal_note: log.journalNote,
+      });
+      if (lError) {
+        return {
+          success: false,
+          profileSynced: true,
+          logsCount: syncedLogs,
+          versesCount: 0,
+          error: `Daily logs table rejected sync: ${lError.message} (${lError.code})`,
+        };
+      }
+      syncedLogs++;
+    }
+
+    // 3. Sync Saved Verses
+    let syncedVerses = 0;
+    for (const v of verses) {
+      const { error: vError } = await supabase.from("saved_verses").upsert({
+        id: v.id,
+        user_id: v.userId,
+        reference: v.reference,
+        verse_text: v.verseText,
+        personal_reflection: v.personalReflection,
+      });
+      if (vError) {
+        return {
+          success: false,
+          profileSynced: true,
+          logsCount: syncedLogs,
+          versesCount: syncedVerses,
+          error: `Saved verses table rejected sync: ${vError.message} (${vError.code})`,
+        };
+      }
+      syncedVerses++;
+    }
+
+    return {
+      success: true,
+      profileSynced: true,
+      logsCount: syncedLogs,
+      versesCount: syncedVerses,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      profileSynced: false,
+      logsCount: 0,
+      versesCount: 0,
+      error: err.message || "Failed to sync data with Supabase.",
+    };
   }
 }
 
