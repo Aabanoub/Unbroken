@@ -1,9 +1,11 @@
-import { UserProfile, DailyLog, SavedVerse, AuthUser } from "@/types";
+import { UserProfile, DailyLog, SavedVerse, AuthUser, Language, ThemeMode } from "@/types";
 import { supabase, isSupabaseConfigured } from "./supabase";
 
 const STORAGE_KEYS = {
   CURRENT_USER: "unbroken_active_user_session_v1",
   USERS_REGISTRY: "unbroken_users_registry_v1",
+  GLOBAL_LANG: "unbroken_global_lang_v1",
+  GLOBAL_THEME: "unbroken_global_theme_v1",
   PIN_UNLOCKED: (userId: string) => `unbroken_session_unlocked_${userId}`,
   PROFILE: (userId: string) => `unbroken_user_profile_${userId}`,
   LOGS: (userId: string) => `unbroken_daily_logs_${userId}`,
@@ -40,6 +42,8 @@ export const DEMO_PROFILE: UserProfile = {
   urgesDefeatedCount: 9,
   pinCode: null,
   disguiseTitle: false,
+  language: "en",
+  theme: "dark",
   createdAt: new Date(Date.now() - 32 * 24 * 60 * 60 * 1000).toISOString(),
 };
 
@@ -304,6 +308,8 @@ export async function registerNewUser(
     urgesDefeatedCount: 0,
     pinCode: null,
     disguiseTitle: false,
+    language: "en",
+    theme: "dark",
     createdAt: new Date().toISOString(),
   };
 
@@ -387,6 +393,8 @@ export function getUserProfile(userId: string): UserProfile {
       urgesDefeatedCount: 0,
       pinCode: null,
       disguiseTitle: false,
+      language: "en",
+      theme: "dark",
       createdAt: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.PROFILE(userId), JSON.stringify(fresh));
@@ -651,6 +659,8 @@ export function resetAppData(type: "fresh" | "demo"): void {
       urgesDefeatedCount: 0,
       pinCode: null,
       disguiseTitle: false,
+      language: "en",
+      theme: "dark",
       createdAt: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEYS.PROFILE(userId), JSON.stringify(freshProfile));
@@ -660,5 +670,45 @@ export function resetAppData(type: "fresh" | "demo"): void {
     localStorage.setItem(STORAGE_KEYS.PROFILE(userId), JSON.stringify(DEMO_PROFILE));
     localStorage.setItem(STORAGE_KEYS.LOGS(userId), JSON.stringify(generateDemoDailyLogs()));
     localStorage.setItem(STORAGE_KEYS.SAVED_VERSES(userId), JSON.stringify(DEMO_SAVED_VERSES));
+  }
+}
+
+export function getGlobalLanguage(): Language {
+  if (typeof window === "undefined") return "en";
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_LANG);
+    if (saved === "ar" || saved === "en") return saved;
+    return "en";
+  } catch {
+    return "en";
+  }
+}
+
+export function setGlobalLanguage(lang: Language): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.GLOBAL_LANG, lang);
+  } catch (err) {
+    console.error("Failed to save global language:", err);
+  }
+}
+
+export function getGlobalTheme(): ThemeMode {
+  if (typeof window === "undefined") return "dark";
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_THEME);
+    if (saved === "light" || saved === "dark") return saved;
+    return "dark";
+  } catch {
+    return "dark";
+  }
+}
+
+export function setGlobalTheme(theme: ThemeMode): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.GLOBAL_THEME, theme);
+  } catch (err) {
+    console.error("Failed to save global theme:", err);
   }
 }

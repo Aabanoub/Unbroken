@@ -26,6 +26,9 @@ export interface AuthUser {
   isGuest?: boolean;
 }
 
+export type Language = "en" | "ar";
+export type ThemeMode = "dark" | "light";
+
 export interface UserProfile {
   id: string;
   displayName: string;
@@ -40,6 +43,8 @@ export interface UserProfile {
   urgesDefeatedCount: number;
   pinCode: string | null;
   disguiseTitle: boolean;
+  language?: Language;
+  theme?: ThemeMode;
   createdAt: string;
 }
 

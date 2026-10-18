@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, ShieldCheck, Delete, Eye, EyeOff } from "lucide-react";
+import { Lock, Delete } from "lucide-react";
+import { Language, ThemeMode } from "@/types";
+import { getTranslation } from "@/lib/i18n";
 
 interface PinLockScreenProps {
   correctPin: string;
   disguiseTitle: boolean;
   onUnlock: () => void;
   onResetPin?: () => void;
+  lang?: Language;
+  theme?: ThemeMode;
 }
 
 export const PinLockScreen: React.FC<PinLockScreenProps> = ({
@@ -15,10 +19,15 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
   disguiseTitle,
   onUnlock,
   onResetPin,
+  lang = "en",
+  theme = "dark",
 }) => {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [attempts, setAttempts] = useState(0);
+
+  const t = getTranslation(lang);
+  const isLight = theme === "light";
 
   const handleDigit = (digit: string) => {
     if (pin.length >= 4) return;
@@ -46,23 +55,44 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#090D16] flex flex-col items-center justify-between p-6 max-w-md mx-auto">
+    <div
+      dir={lang === "ar" ? "rtl" : "ltr"}
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-between p-6 max-w-md mx-auto transition-colors ${
+        isLight ? "bg-slate-50 text-slate-900" : "bg-[#090D16] text-slate-100"
+      }`}
+    >
       {/* Header */}
       <div className="w-full pt-12 flex flex-col items-center text-center">
-        <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center mb-4 shadow-xl">
-          <Lock className="w-8 h-8 text-emerald-400" />
+        <div
+          className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-xl border ${
+            isLight
+              ? "bg-white border-slate-200 text-emerald-600 shadow-slate-200"
+              : "bg-slate-800/80 border-slate-700/60 text-emerald-400"
+          }`}
+        >
+          <Lock className="w-8 h-8" />
         </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">
-          {disguiseTitle ? "Daily Habits" : "Unbroken"}
+        <h1 className="text-2xl font-bold tracking-tight">
+          {disguiseTitle ? t.brand.disguiseTitle : t.brand.appName}
         </h1>
-        <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+        <p
+          className={`text-xs mt-1 max-w-xs leading-relaxed ${
+            isLight ? "text-slate-600" : "text-slate-400"
+          }`}
+        >
           {disguiseTitle
-            ? "Enter 4-digit habit passkey to continue"
-            : "Clear Eyes, Clean Mind."}
+            ? lang === "ar"
+              ? "أدخل رمز المرور المكون من ٤ أرقام للمتابعة"
+              : "Enter 4-digit habit passkey to continue"
+            : t.brand.slogan}
         </p>
 
         {/* PIN Dots */}
-        <div className={`flex gap-4 mt-8 transition-transform duration-200 ${error ? "animate-bounce" : ""}`}>
+        <div
+          className={`flex gap-4 mt-8 transition-transform duration-200 ${
+            error ? "animate-bounce" : ""
+          }`}
+        >
           {[0, 1, 2, 3].map((idx) => {
             const filled = pin.length > idx;
             return (
@@ -72,7 +102,9 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
                   error
                     ? "bg-rose-500 scale-110 shadow-lg shadow-rose-500/50"
                     : filled
-                    ? "bg-emerald-400 scale-110 shadow-md shadow-emerald-500/40"
+                    ? "bg-emerald-500 scale-110 shadow-md shadow-emerald-500/40"
+                    : isLight
+                    ? "bg-slate-200 border border-slate-300"
                     : "bg-slate-700/80 border border-slate-600"
                 }`}
               />
@@ -81,8 +113,8 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
         </div>
 
         {error && (
-          <p className="text-xs text-rose-400 font-medium mt-3 animate-fade-in">
-            Incorrect PIN. Try again.
+          <p className="text-xs text-rose-500 font-medium mt-3 animate-fade-in">
+            {lang === "ar" ? "الرمز غير صحيح. يرجى المحاولة مرة أخرى." : "Incorrect PIN. Try again."}
           </p>
         )}
       </div>
@@ -94,7 +126,11 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
             <button
               key={num}
               onClick={() => handleDigit(num)}
-              className="h-16 rounded-2xl bg-slate-800/60 hover:bg-slate-700/70 active:scale-95 border border-slate-700/50 text-2xl font-semibold text-slate-100 transition-all flex items-center justify-center shadow-md"
+              className={`h-16 rounded-2xl active:scale-95 text-2xl font-semibold transition-all flex items-center justify-center shadow-md border ${
+                isLight
+                  ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-900 shadow-slate-100"
+                  : "bg-slate-800/60 hover:bg-slate-700/70 border-slate-700/50 text-slate-100"
+              }`}
             >
               {num}
             </button>
@@ -104,13 +140,21 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           </div>
           <button
             onClick={() => handleDigit("0")}
-            className="h-16 rounded-2xl bg-slate-800/60 hover:bg-slate-700/70 active:scale-95 border border-slate-700/50 text-2xl font-semibold text-slate-100 transition-all flex items-center justify-center shadow-md"
+            className={`h-16 rounded-2xl active:scale-95 text-2xl font-semibold transition-all flex items-center justify-center shadow-md border ${
+              isLight
+                ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-900 shadow-slate-100"
+                : "bg-slate-800/60 hover:bg-slate-700/70 border-slate-700/50 text-slate-100"
+            }`}
           >
             0
           </button>
           <button
             onClick={handleDelete}
-            className="h-16 rounded-2xl bg-slate-800/40 hover:bg-slate-700/50 active:scale-95 border border-slate-700/40 text-slate-400 transition-all flex items-center justify-center"
+            className={`h-16 rounded-2xl active:scale-95 transition-all flex items-center justify-center border ${
+              isLight
+                ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-600 shadow-sm"
+                : "bg-slate-800/40 hover:bg-slate-700/50 border-slate-700/40 text-slate-400"
+            }`}
             aria-label="Delete"
           >
             <Delete className="w-6 h-6" />
@@ -121,9 +165,11 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           <div className="text-center mt-3">
             <button
               onClick={onResetPin}
-              className="text-xs text-slate-500 hover:text-slate-300 underline underline-offset-2"
+              className={`text-xs underline underline-offset-2 ${
+                isLight ? "text-slate-500 hover:text-slate-800" : "text-slate-500 hover:text-slate-300"
+              }`}
             >
-              Forgot PIN? Reset Lock
+              {lang === "ar" ? "نسيت الرمز؟ إعادة تعيين القفل" : "Forgot PIN? Reset Lock"}
             </button>
           </div>
         )}

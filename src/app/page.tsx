@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserProfile, DailyLog, SavedVerse, LogStatus, TimeOfDayOption, AuthUser } from "@/types";
+import { UserProfile, DailyLog, SavedVerse, LogStatus, TimeOfDayOption, AuthUser, Language, ThemeMode } from "@/types";
 import {
   getCurrentSession,
   logoutUser,
@@ -14,7 +14,12 @@ import {
   removeUserVerse,
   resetAppData,
   calculateAddictionSeverityIndex,
+  getGlobalLanguage,
+  setGlobalLanguage,
+  getGlobalTheme,
+  setGlobalTheme,
 } from "@/lib/storage";
+import { getTranslation } from "@/lib/i18n";
 import { LoginPage } from "@/components/LoginPage";
 import { PinLockScreen } from "@/components/PinLockScreen";
 import { OnboardingAssessment } from "@/components/OnboardingAssessment";
@@ -26,11 +31,15 @@ import { BottomNav, NavTab } from "@/components/BottomNav";
 import { UrgeRescueModal } from "@/components/UrgeRescueModal";
 import { DailyCheckInModal } from "@/components/DailyCheckInModal";
 import { GraceRelapseModal } from "@/components/GraceRelapseModal";
-import { Lock, Sparkles, Shield, LogOut, User as UserIcon } from "lucide-react";
+import { Lock, Shield, LogOut, Globe, Sun, Moon } from "lucide-react";
 
 export default function AppRoot() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [authChecking, setAuthChecking] = useState<boolean>(true);
+
+  // App Options: Language & Theme
+  const [lang, setLang] = useState<Language>("en");
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
@@ -43,6 +52,14 @@ export default function AppRoot() {
   const [showCheckInModal, setShowCheckInModal] = useState<boolean>(false);
   const [showRelapseGraceModal, setShowRelapseGraceModal] = useState<boolean>(false);
   const [forceAssessment, setForceAssessment] = useState<boolean>(false);
+
+  // Initialize language & theme from storage
+  useEffect(() => {
+    const savedLang = getGlobalLanguage();
+    const savedTheme = getGlobalTheme();
+    setLang(savedLang);
+    setTheme(savedTheme);
+  }, []);
 
   // Initialize session on mount
   useEffect(() => {
@@ -63,6 +80,16 @@ export default function AppRoot() {
     setProfile(userProfile);
     setDailyLogs(userLogs);
     setSavedVerses(userVerses);
+
+    // Apply saved user preferences if available
+    if (userProfile.language) {
+      setLang(userProfile.language);
+      setGlobalLanguage(userProfile.language);
+    }
+    if (userProfile.theme) {
+      setTheme(userProfile.theme);
+      setGlobalTheme(userProfile.theme);
+    }
 
     // If PIN is enabled for this user, lock by default
     if (userProfile.pinCode) {
@@ -88,9 +115,40 @@ export default function AppRoot() {
     setCurrentTab("home");
   };
 
+  const handleToggleLang = (targetLang?: Language) => {
+    const newLang = targetLang || (lang === "ar" ? "en" : "ar");
+    setLang(newLang);
+    setGlobalLanguage(newLang);
+    if (currentUser && profile) {
+      handleUpdateProfile({ language: newLang });
+    }
+  };
+
+  const handleToggleTheme = (targetTheme?: ThemeMode) => {
+    const newTheme = targetTheme || (theme === "light" ? "dark" : "light");
+    setTheme(newTheme);
+    setGlobalTheme(newTheme);
+    if (currentUser && profile) {
+      handleUpdateProfile({ theme: newTheme });
+    }
+  };
+
+  const handleUpdateProfile = (updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    const updated = saveUserProfile(currentUser.id, updates);
+    setProfile(updated);
+  };
+
+  const isLight = theme === "light";
+  const t = getTranslation(lang);
+
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-[#090D16] flex items-center justify-center text-slate-500 text-xs">
+      <div
+        className={`min-h-screen flex items-center justify-center text-xs ${
+          isLight ? "bg-slate-50 text-slate-500" : "bg-[#090D16] text-slate-500"
+        }`}
+      >
         Loading Unbroken Recovery Engine...
       </div>
     );
@@ -98,12 +156,24 @@ export default function AppRoot() {
 
   // 1. LOGIN & REGISTRATION PAGE (Shown when user is not authenticated)
   if (!currentUser) {
-    return <LoginPage onAuthSuccess={handleAuthSuccess} />;
+    return (
+      <LoginPage
+        onAuthSuccess={handleAuthSuccess}
+        lang={lang}
+        theme={theme}
+        onToggleLang={() => handleToggleLang()}
+        onToggleTheme={() => handleToggleTheme()}
+      />
+    );
   }
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-[#090D16] flex items-center justify-center text-slate-500 text-xs">
+      <div
+        className={`min-h-screen flex items-center justify-center text-xs ${
+          isLight ? "bg-slate-50 text-slate-500" : "bg-[#090D16] text-slate-500"
+        }`}
+      >
         Preparing User Space...
       </div>
     );
@@ -121,6 +191,8 @@ export default function AppRoot() {
           setProfile(updated);
           setIsUnlocked(true);
         }}
+        lang={lang}
+        theme={theme}
       />
     );
   }
@@ -135,16 +207,13 @@ export default function AppRoot() {
           setProfile(updated);
           setForceAssessment(false);
         }}
+        lang={lang}
+        theme={theme}
       />
     );
   }
 
-  // Data Update Handlers (Quarantined by currentUser.id)
-  const handleUpdateProfile = (updates: Partial<UserProfile>) => {
-    const updated = saveUserProfile(currentUser.id, updates);
-    setProfile(updated);
-  };
-
+  // Handlers for user logs and metrics
   const handleSubmitDailyLog = (logData: {
     status: LogStatus;
     urgeIntensity: number;
@@ -266,51 +335,126 @@ export default function AppRoot() {
 
   const isVerseSaved = (ref: string) => savedVerses.some((v) => v.reference === ref);
 
+  const tierShortLabel = () => {
+    const rawTier = profile.addictionTier;
+    if (lang === "ar") {
+      if (rawTier.includes("Level 1")) return "المستوى ١";
+      if (rawTier.includes("Level 2")) return "المستوى ٢";
+      return "المستوى ٣";
+    }
+    return rawTier.split("—")[0].trim();
+  };
+
   return (
-    <main className="min-h-screen bg-[#090D16] text-slate-100 flex justify-center selection:bg-emerald-500/30">
+    <main
+      dir={lang === "ar" ? "rtl" : "ltr"}
+      className={`min-h-screen ${
+        isLight
+          ? "light bg-slate-50 text-slate-900 selection:bg-emerald-500/30"
+          : "dark bg-[#090D16] text-slate-100 selection:bg-emerald-500/30"
+      } flex justify-center transition-colors duration-200`}
+    >
       {/* Mobile-First Frame */}
-      <div className="w-full max-w-md min-h-screen bg-[#090D16] flex flex-col relative px-4 pt-3 border-x border-slate-900 shadow-2xl">
+      <div
+        className={`w-full max-w-md min-h-screen ${
+          isLight
+            ? "bg-slate-50 border-x border-slate-200"
+            : "bg-[#090D16] border-x border-slate-900"
+        } flex flex-col relative px-4 pt-3 shadow-2xl transition-colors duration-200`}
+      >
         {/* App Top Bar */}
-        <header className="flex items-center justify-between py-2 border-b border-slate-900 mb-3">
+        <header
+          className={`flex items-center justify-between py-2 border-b mb-3 transition-colors ${
+            isLight ? "border-slate-200" : "border-slate-900"
+          }`}
+        >
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black shadow-md shadow-emerald-500/20">
               <Shield className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div>
-              <span className="text-sm font-black tracking-tight text-white block">
-                {profile.disguiseTitle ? "Daily Habits" : "UNBROKEN"}
+              <span
+                className={`text-sm font-black tracking-tight block ${
+                  isLight ? "text-slate-900" : "text-white"
+                }`}
+              >
+                {profile.disguiseTitle ? t.brand.disguiseTitle : t.brand.appName}
               </span>
               <span
-                className="text-[9px] font-semibold tracking-wider text-emerald-400 block -mt-0.5"
+                className={`text-[9px] font-semibold tracking-wider block -mt-0.5 ${
+                  isLight ? "text-emerald-700 font-bold" : "text-emerald-400"
+                }`}
               >
-                {profile.disguiseTitle
-                  ? "Habit & Wellness Tracker"
-                  : "Clear Eyes, Clean Mind."}
+                {profile.disguiseTitle ? t.brand.disguiseSubtitle : t.brand.slogan}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Quick Language Toggle */}
+            <button
+              onClick={() => handleToggleLang()}
+              className={`px-2 py-1 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition-all ${
+                isLight
+                  ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-slate-800"
+              }`}
+              title={t.header.switchLang}
+            >
+              <Globe className="w-3 h-3 text-emerald-500" />
+              <span>{lang === "ar" ? "EN" : "عربي"}</span>
+            </button>
+
+            {/* Quick Theme Toggle */}
+            <button
+              onClick={() => handleToggleTheme()}
+              className={`p-1.5 rounded-lg border transition-all ${
+                isLight
+                  ? "bg-white border-slate-200 text-amber-600 hover:bg-slate-100 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-cyan-400 hover:text-cyan-300 hover:bg-slate-800"
+              }`}
+              title={t.header.switchTheme}
+            >
+              {isLight ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* PIN Lock button if configured */}
             {profile.pinCode && (
               <button
                 onClick={() => setIsUnlocked(false)}
-                className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 transition-colors"
-                title="Lock App with PIN"
+                className={`p-1.5 rounded-lg border transition-colors ${
+                  isLight
+                    ? "bg-white border-slate-200 text-slate-600 hover:text-emerald-600 shadow-sm"
+                    : "bg-slate-900 border-slate-800 text-slate-400 hover:text-emerald-400"
+                }`}
+                title={t.header.lockTitle}
               >
                 <Lock className="w-3.5 h-3.5" />
               </button>
             )}
 
+            {/* Sign Out button */}
             <button
               onClick={handleSignOut}
-              className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 transition-colors"
-              title={`Signed in as ${currentUser.email}. Click to sign out.`}
+              className={`p-1.5 rounded-lg border transition-colors ${
+                isLight
+                  ? "bg-white border-slate-200 text-slate-500 hover:text-rose-500 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-rose-400"
+              }`}
+              title={`${t.header.signOutTitle} (${currentUser.email})`}
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
 
-            <span className="text-[10px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-400 px-2 py-1 rounded-md">
-              {profile.addictionTier.split("—")[0].trim()}
+            {/* Tier Badge */}
+            <span
+              className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md border ${
+                isLight
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-slate-900 border-slate-800 text-slate-400"
+              }`}
+            >
+              {tierShortLabel()}
             </span>
           </div>
         </header>
@@ -325,11 +469,18 @@ export default function AppRoot() {
               onOpenSOS={() => setShowSOSModal(true)}
               onSaveVerse={handleSaveVerse}
               isSavedVerse={isVerseSaved}
+              lang={lang}
+              theme={theme}
             />
           )}
 
           {currentTab === "analytics" && (
-            <AnalyticsDashboard profile={profile} dailyLogs={dailyLogs} />
+            <AnalyticsDashboard
+              profile={profile}
+              dailyLogs={dailyLogs}
+              lang={lang}
+              theme={theme}
+            />
           )}
 
           {currentTab === "scripture" && (
@@ -337,6 +488,8 @@ export default function AppRoot() {
               savedVerses={savedVerses}
               onSaveVerseWithReflection={handleSaveVerseWithReflection}
               onRemoveSavedVerse={handleRemoveSavedVerse}
+              lang={lang}
+              theme={theme}
             />
           )}
 
@@ -349,6 +502,10 @@ export default function AppRoot() {
               onResetData={handleResetData}
               onLockApp={() => setIsUnlocked(false)}
               onSignOut={handleSignOut}
+              lang={lang}
+              theme={theme}
+              onToggleLang={(l) => handleToggleLang(l)}
+              onToggleTheme={(t) => handleToggleTheme(t)}
             />
           )}
         </div>
@@ -358,6 +515,8 @@ export default function AppRoot() {
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
           onOpenSOS={() => setShowSOSModal(true)}
+          lang={lang}
+          theme={theme}
         />
 
         {/* Modals */}
@@ -365,6 +524,8 @@ export default function AppRoot() {
           isOpen={showSOSModal}
           onClose={() => setShowSOSModal(false)}
           onVictory={handleVictorySOS}
+          lang={lang}
+          theme={theme}
         />
 
         <DailyCheckInModal
@@ -372,12 +533,16 @@ export default function AppRoot() {
           onClose={() => setShowCheckInModal(false)}
           onSubmitLog={handleSubmitDailyLog}
           onOpenRelapseGraceModal={() => setShowRelapseGraceModal(true)}
+          lang={lang}
+          theme={theme}
         />
 
         <GraceRelapseModal
           isOpen={showRelapseGraceModal}
           onClose={() => setShowRelapseGraceModal(false)}
           onConfirmReset={handleRelapseReset}
+          lang={lang}
+          theme={theme}
         />
       </div>
     </main>
