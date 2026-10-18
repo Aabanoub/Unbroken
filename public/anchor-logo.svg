@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="192" height="192" fill="none">
+  <defs>
+    <linearGradient id="anchorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1A2234" />
+      <stop offset="100%" stop-color="#090D16" />
+    </radialGradient>
+  </defs>
+  <rect width="24" height="24" rx="6" fill="url(#bgGrad)" />
+  <circle cx="12" cy="6" r="2" stroke="url(#anchorGrad)" stroke-width="1.8" />
+  <line x1="12" y1="8" x2="12" y2="20" stroke="url(#anchorGrad)" stroke-width="1.8" stroke-linecap="round" />
+  <line x1="7" y1="11" x2="17" y2="11" stroke="url(#anchorGrad)" stroke-width="1.8" stroke-linecap="round" />
+  <path d="M5 14C5 17.866 8.134 21 12 21C15.866 21 19 17.866 19 14" stroke="url(#anchorGrad)" stroke-width="1.8" stroke-linecap="round" />
+  <polyline points="3 14 5 14 5 16" stroke="url(#anchorGrad)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  <polyline points="21 14 19 14 19 16" stroke="url(#anchorGrad)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
