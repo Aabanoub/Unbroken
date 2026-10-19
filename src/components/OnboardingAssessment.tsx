@@ -16,6 +16,8 @@ import {
   HeartHandshake,
   Activity,
   Zap,
+  Loader2,
+  Check,
 } from "lucide-react";
 
 interface OnboardingAssessmentProps {
@@ -39,6 +41,7 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
   const [showReport, setShowReport] = useState(false);
   const [calculatedScore, setCalculatedScore] = useState(0);
   const [nameInput, setNameInput] = useState(initialProfile.displayName || "Disciple");
+  const [submitting, setSubmitting] = useState(false);
 
   const lang = currentLang;
   const t = getTranslation(lang);
@@ -150,9 +153,11 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
   };
 
   const finishAssessment = () => {
+    if (submitting) return;
+    setSubmitting(true);
     const details = getTierDetails(calculatedScore);
     onComplete({
-      displayName: nameInput.trim() || "Disciple",
+      displayName: nameInput.trim() || initialProfile.displayName || "Disciple",
       onboardingCompleted: true,
       onboardingScore: calculatedScore,
       currentAddictionIndex: calculatedScore,
@@ -302,10 +307,24 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
         <div className="py-6">
           <button
             onClick={finishAssessment}
-            className="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-base transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25"
+            disabled={submitting}
+            className={`w-full py-4 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 ${
+              submitting
+                ? "bg-emerald-600 text-slate-900 cursor-not-allowed opacity-80"
+                : "bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950"
+            }`}
           >
-            <span>{t.onboarding.startJourneyBtn}</span>
-            <ArrowRight className={`w-5 h-5 ${lang === "ar" ? "rotate-180" : ""}`} />
+            {submitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{lang === "ar" ? "جاري تهيئة مسار التعافي..." : "Activating Recovery Roadmap..."}</span>
+              </>
+            ) : (
+              <>
+                <span>{t.onboarding.startJourneyBtn}</span>
+                <ArrowRight className={`w-5 h-5 ${lang === "ar" ? "rotate-180" : ""}`} />
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -420,35 +439,44 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
         <div className={`text-xs font-semibold px-1 mb-1 ${isLight ? "text-slate-600" : "text-slate-400"}`}>
           {lang === "ar" ? "اختر التكرار الصادق لواقعك:" : "Select honest frequency:"}
         </div>
-        {likertOptions.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => handleSelectScore(opt.value)}
-            className={`w-full p-3.5 rounded-xl border transition-all flex items-center justify-between group ${
-              isLight
-                ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-900 shadow-sm"
-                : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-white"
-            }`}
-          >
-            <div className={lang === "ar" ? "text-right" : "text-left"}>
-              <span className="text-sm font-semibold group-hover:text-emerald-500 transition-colors block">
-                {opt.label}
-              </span>
-              <span className={`text-xs block ${isLight ? "text-slate-500" : "text-slate-400"}`}>
-                {opt.description}
-              </span>
-            </div>
-            <div
-              className={`w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all ${
-                isLight
-                  ? "bg-slate-100 border-slate-200 text-slate-700"
-                  : "bg-slate-800 border-slate-700 text-slate-400"
+        {likertOptions.map((opt) => {
+          const isSelected = answers[currentQuestion.id] === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => handleSelectScore(opt.value)}
+              className={`w-full p-3.5 rounded-xl border transition-all flex items-center justify-between group ${
+                isSelected
+                  ? isLight
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-950 shadow-md ring-1 ring-emerald-500/30"
+                    : "bg-emerald-950/40 border-emerald-500 text-white shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500/40"
+                  : isLight
+                  ? "bg-white hover:bg-slate-100 border-slate-200 text-slate-900 shadow-sm"
+                  : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-white"
               }`}
             >
-              {opt.value}
-            </div>
-          </button>
-        ))}
+              <div className={lang === "ar" ? "text-right" : "text-left"}>
+                <span className="text-sm font-semibold group-hover:text-emerald-500 transition-colors block">
+                  {opt.label}
+                </span>
+                <span className={`text-xs block ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                  {opt.description}
+                </span>
+              </div>
+              <div
+                className={`w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all ${
+                  isSelected
+                    ? "bg-emerald-500 border-emerald-400 text-slate-950"
+                    : isLight
+                    ? "bg-slate-100 border-slate-200 text-slate-700"
+                    : "bg-slate-800 border-slate-700 text-slate-400"
+                }`}
+              >
+                {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : opt.value}
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

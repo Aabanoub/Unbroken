@@ -3,59 +3,59 @@ import { AssessmentQuestion, Milestone } from "@/types";
 export const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
   {
     id: 1,
-    title: "Compulsivity & Spiritual Conflict",
-    category: "compulsivity",
-    question: "How often do you find yourself viewing pornography or masturbating even after promising yourself and God that you would stop?",
-    neuroInsight: "Signals an automated cue-routine dopamine loop that bypasses conscious intention."
+    title: "Frequency & Salience",
+    category: "frequency_salience",
+    question: "How often do urges, pornography, or compulsive sexual thoughts dominate your daily attention, studies, or free time?",
+    neuroInsight: "Measures cognitive preoccupation and automated cue-reactivity within the ventral striatum and salience network."
   },
   {
     id: 2,
-    title: "Loss of Brake Control",
-    category: "brake_control",
-    question: "Once an urge starts, how difficult is it for you to redirect your attention away from it?",
-    neuroInsight: "Measures prefrontal cortex hypoactivation during limbic excitation."
+    title: "Tolerance & Escalation",
+    category: "tolerance_escalation",
+    question: "Have you noticed needing longer sessions, more frequent viewing, or more extreme/novel content to achieve the same thrill or emotional relief?",
+    neuroInsight: "Dopamine D2 receptor downregulation requires increasingly novel and intensified stimuli for the same neurological reward response."
   },
   {
     id: 3,
-    title: "Emotional Coping (HALT)",
-    category: "emotional_coping",
-    question: "How often do you use this habit to escape uncomfortable feelings like stress, loneliness, boredom, tiredness, or anxiety?",
-    neuroInsight: "Pornography often acts as artificial emotional self-medication rather than genuine sexual desire."
+    title: "Mood Modification (Emotional Triggers)",
+    category: "mood_modification",
+    question: "How often do you turn to this habit as an emotional coping mechanism to escape stress, loneliness, sadness, boredom, or physical exhaustion (HALT)?",
+    neuroInsight: "Pornography functions as an artificial chemical tranquilizer, conditioning a reflexive emotional escape loop in the limbic system."
   },
   {
     id: 4,
-    title: "Escalation & Tolerance",
-    category: "tolerance",
-    question: "Have you noticed needing longer sessions or more extreme content to feel the same level of excitement or relief?",
-    neuroInsight: "Dopamine D2 receptor downregulation requires increasingly novel stimuli for the same neurological response."
+    title: "Loss of Control",
+    category: "loss_of_control",
+    question: "When an urge strikes, how difficult is it for you to stop or walk away, even after promising yourself and God that you would quit?",
+    neuroInsight: "Signals prefrontal cortex hypoactivation—the executive impulse brakes fail under acute dopamine craving."
   },
   {
     id: 5,
-    title: "Nighttime Vulnerability",
-    category: "circadian_vulnerability",
-    question: "How often does this habit delay your sleep or happen late at night when you are alone with your phone?",
-    neuroInsight: "Willpower and executive function drop significantly as the brain fatigues near midnight."
+    title: "Functional Conflict (Brain Fog)",
+    category: "functional_conflict",
+    question: "How often does this habit cause mental fatigue, brain fog, decreased motivation, or conflict with your academic, spiritual, and personal goals?",
+    neuroInsight: "Frequent dopamine surges and neuroinflammation exhaust executive reserves, resulting in frontal lobe fatigue, poor memory, and apathy."
   },
   {
     id: 6,
-    title: "Cognitive Intrusion & Flashbacks",
-    category: "cognitive_intrusion",
-    question: "How frequently do unwanted sexual thoughts or images interrupt your focus during studying, prayer, or daily tasks?",
-    neuroInsight: "Hyper-potent sexual memories stored in the amygdala trigger involuntary mental intrusive thoughts."
+    title: "Withdrawal Symptoms",
+    category: "withdrawal_symptoms",
+    question: "When you attempt to stay clean for several days, how frequently do you experience restlessness, irritability, mood swings, or acute cravings?",
+    neuroInsight: "The flatline and neurochemical detox phase where downregulated dopamine receptors crave their artificial baseline."
   },
   {
     id: 7,
-    title: "Post-Act Guilt Cycle",
-    category: "guilt_cycle",
-    question: "How often do you experience heavy shame, spiritual distance from God, or low energy immediately after relapsing?",
-    neuroInsight: "Prolactin surge coupled with dopamine crash triggers acute neuro-chemical remorse and shame."
+    title: "Secrecy & Isolation",
+    category: "secrecy_isolation",
+    question: "How often do you hide your digital behavior (incognito tabs, clearing history) or isolate yourself from family, friends, and Christian fellowship to engage in the habit?",
+    neuroInsight: "Compulsive addiction relies on secrecy, activating guilt-fear circuits that alienate the user from authentic community and support."
   },
   {
     id: 8,
-    title: "Withdrawal & Restlessness",
-    category: "withdrawal",
-    question: "When you try to stay clean for several days, how often do you feel irritable, restless, or unusually tempted?",
-    neuroInsight: "The flatline and neurochemical detox phase where the brain screams for its usual dopamine baseline."
+    title: "Relapse History",
+    category: "relapse_history",
+    question: "How frequently have you attempted to quit permanently, only to find yourself relapsing into the same compulsive loop within days or weeks?",
+    neuroInsight: "Indicates deep Delta-FosB neuro-markers and ingrained synaptic pathways in the nucleus accumbens requiring intentional neuroplastic rewiring."
   }
 ];
 
