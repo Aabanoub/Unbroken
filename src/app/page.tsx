@@ -1,27 +1,25 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { UserProfile, DailyLog, SavedVerse, LogStatus, TimeOfDayOption, AuthUser, Language, ThemeMode } from "@/types";
 import {
-  getCurrentSession,
-  logoutUser,
-  getUserProfile,
-  saveUserProfile,
-  getUserDailyLogs,
-  saveUserDailyLog,
-  getUserSavedVerses,
-  saveUserVerse,
-  removeUserVerse,
-  resetAppData,
+  UserProfile,
+  DailyLog,
+  SavedVerse,
+  LogStatus,
+  TimeOfDayOption,
+  Language,
+  ThemeMode,
+} from "@/types";
+import {
   calculateAddictionSeverityIndex,
   getGlobalLanguage,
   setGlobalLanguage,
   getGlobalTheme,
   setGlobalTheme,
-  syncUserDataFromCloud,
 } from "@/lib/storage";
+import { useStorage } from "@/context/StorageContext";
 import { getTranslation } from "@/lib/i18n";
-import { LoginPage } from "@/components/LoginPage";
+import { AuthGate } from "@/components/AuthGate";
 import { PinLockScreen } from "@/components/PinLockScreen";
 import { OnboardingAssessment } from "@/components/OnboardingAssessment";
 import { HomeDashboard } from "@/components/HomeDashboard";
@@ -32,20 +30,45 @@ import { BottomNav, NavTab } from "@/components/BottomNav";
 import { UrgeRescueModal } from "@/components/UrgeRescueModal";
 import { DailyCheckInModal } from "@/components/DailyCheckInModal";
 import { GraceRelapseModal } from "@/components/GraceRelapseModal";
-import { useAutoSync } from "@/lib/syncManager";
-import { Lock, Shield, LogOut, Globe, Sun, Moon, Cloud, CloudOff, CloudUpload, CheckCircle2 } from "lucide-react";
+import {
+  Lock,
+  Shield,
+  LogOut,
+  Globe,
+  Sun,
+  Moon,
+  Cloud,
+  CloudOff,
+  CloudUpload,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 
 export default function AppRoot() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [authChecking, setAuthChecking] = useState<boolean>(true);
+  const {
+    user,
+    profile,
+    dailyLogs,
+    savedVerses,
+    syncStatus,
+    isOnline,
+    updateProfile,
+    addDailyLog,
+    addSavedVerse,
+    removeSavedVerse,
+    resetApp,
+    refreshData,
+    logout,
+  } = useStorage();
 
   // App Options: Language & Theme
-  const [lang, setLang] = useState<Language>("en");
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [lang, setLang] = useState<Language>(() => {
+    return getGlobalLanguage();
+  });
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return getGlobalTheme();
+  });
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [savedVerses, setSavedVerses] = useState<SavedVerse[]>([]);
   const [isUnlocked, setIsUnlocked] = useState<boolean>(true);
   const [currentTab, setCurrentTab] = useState<NavTab>("home");
 
@@ -55,95 +78,33 @@ export default function AppRoot() {
   const [showRelapseGraceModal, setShowRelapseGraceModal] = useState<boolean>(false);
   const [forceAssessment, setForceAssessment] = useState<boolean>(false);
 
-  // Automatic Network-Aware Cloud Sync (Syncs whenever online or data mutates)
-  const { isOnline, syncState, justReconnected, syncNow } = useAutoSync(
-    currentUser?.id || null
-  );
-
-  // Initialize language & theme from storage
+  // Sync profile language & theme changes into local state
   useEffect(() => {
-    const savedLang = getGlobalLanguage();
-    const savedTheme = getGlobalTheme();
-    setLang(savedLang);
-    setTheme(savedTheme);
-  }, []);
+    if (profile?.language && profile.language !== lang) {
+      setLang(profile.language);
+      setGlobalLanguage(profile.language);
+    }
+    if (profile?.theme && profile.theme !== theme) {
+      setTheme(profile.theme);
+      setGlobalTheme(profile.theme);
+    }
+  }, [profile?.language, profile?.theme]);
 
-  // Initialize session on mount
+  // Lock app if profile has a PIN code configured
   useEffect(() => {
-    const session = getCurrentSession();
-    if (session) {
-      loadUserData(session);
-    } else {
-      setAuthChecking(false);
-    }
-  }, []);
-
-  const loadUserData = async (user: AuthUser) => {
-    setCurrentUser(user);
-
-    // Initial local read
-    const localProfile = getUserProfile(user.id);
-    const localLogs = getUserDailyLogs(user.id);
-    const localVerses = getUserSavedVerses(user.id);
-
-    setProfile(localProfile);
-    setDailyLogs(localLogs);
-    setSavedVerses(localVerses);
-
-    if (localProfile.language) {
-      setLang(localProfile.language);
-      setGlobalLanguage(localProfile.language);
-    }
-    if (localProfile.theme) {
-      setTheme(localProfile.theme);
-      setGlobalTheme(localProfile.theme);
-    }
-    if (localProfile.pinCode) {
+    if (profile?.pinCode) {
       setIsUnlocked(false);
     } else {
       setIsUnlocked(true);
     }
-
-    setAuthChecking(false);
-
-    // Cross-Device Cloud Sync: If user is connected to Supabase, pull fresh cloud data
-    if (!user.isGuest) {
-      const cloudData = await syncUserDataFromCloud(user.id);
-      setProfile(cloudData.profile);
-      setDailyLogs(cloudData.dailyLogs);
-      setSavedVerses(cloudData.savedVerses);
-
-      if (cloudData.profile.language) {
-        setLang(cloudData.profile.language);
-        setGlobalLanguage(cloudData.profile.language);
-      }
-      if (cloudData.profile.theme) {
-        setTheme(cloudData.profile.theme);
-        setGlobalTheme(cloudData.profile.theme);
-      }
-    }
-  };
-
-  const handleAuthSuccess = (user: AuthUser) => {
-    loadUserData(user);
-  };
-
-  const handleSignOut = async () => {
-    await logoutUser();
-    setCurrentUser(null);
-    setProfile(null);
-    setDailyLogs([]);
-    setSavedVerses([]);
-    setIsUnlocked(true);
-    setCurrentTab("home");
-  };
+  }, [profile?.pinCode]);
 
   const handleToggleLang = (targetLang?: Language) => {
     const newLang = targetLang || (lang === "ar" ? "en" : "ar");
     setLang(newLang);
     setGlobalLanguage(newLang);
-    if (currentUser && profile) {
-      handleUpdateProfile({ language: newLang });
+    if (user && profile) {
+      updateProfile({ language: newLang });
     }
   };
 
@@ -151,58 +112,51 @@ export default function AppRoot() {
     const newTheme = targetTheme || (theme === "light" ? "dark" : "light");
     setTheme(newTheme);
     setGlobalTheme(newTheme);
-    if (currentUser && profile) {
-      handleUpdateProfile({ theme: newTheme });
+    if (user && profile) {
+      updateProfile({ theme: newTheme });
     }
   };
 
-  const handleUpdateProfile = (updates: Partial<UserProfile>) => {
-    if (!currentUser) return;
-    const updated = saveUserProfile(currentUser.id, updates);
-    setProfile(updated);
+  const handleSignOut = async () => {
+    await logout();
+    setIsUnlocked(true);
+    setCurrentTab("home");
   };
 
   const isLight = theme === "light";
   const t = getTranslation(lang);
 
-  if (authChecking) {
+  // 1. AUTH GATE (Shown when user is not authenticated)
+  if (!user) {
     return (
-      <div
-        className={`min-h-screen flex items-center justify-center text-xs ${
-          isLight ? "bg-slate-50 text-slate-500" : "bg-[#090D16] text-slate-500"
-        }`}
-      >
-        Loading Unbroken Recovery Engine...
-      </div>
-    );
-  }
-
-  // 1. LOGIN & REGISTRATION PAGE (Shown when user is not authenticated)
-  if (!currentUser) {
-    return (
-      <LoginPage
-        onAuthSuccess={handleAuthSuccess}
+      <AuthGate
         lang={lang}
         theme={theme}
-        onToggleLang={() => handleToggleLang()}
-        onToggleTheme={() => handleToggleTheme()}
+        onToggleLang={handleToggleLang}
+        onToggleTheme={handleToggleTheme}
       />
     );
   }
 
+  // 2. LOADING USER SPACE
   if (!profile) {
     return (
       <div
         className={`min-h-screen flex items-center justify-center text-xs ${
-          isLight ? "bg-slate-50 text-slate-500" : "bg-[#090D16] text-slate-500"
+          isLight ? "bg-slate-50 text-slate-500" : "bg-[#090D16] text-slate-400"
         }`}
       >
-        Preparing User Space...
+        <div className="flex flex-col items-center gap-3">
+          <Shield className="w-9 h-9 text-emerald-500 animate-pulse stroke-[2.5]" />
+          <p className="font-semibold tracking-wide">
+            {lang === "ar" ? "جاري تهيئة مساحة الاسترداد..." : "Preparing Unbroken Recovery Space..."}
+          </p>
+        </div>
       </div>
     );
   }
 
-  // 2. PIN LOCK SCREEN (If PIN protection is enabled for this user)
+  // 3. PIN LOCK SCREEN (If PIN lock is active for this profile)
   if (profile.pinCode && !isUnlocked) {
     return (
       <PinLockScreen
@@ -210,25 +164,23 @@ export default function AppRoot() {
         disguiseTitle={profile.disguiseTitle}
         onUnlock={() => setIsUnlocked(true)}
         onResetPin={() => {
-          const updated = saveUserProfile(currentUser.id, { pinCode: null });
-          setProfile(updated);
+          updateProfile({ pinCode: null });
           setIsUnlocked(true);
         }}
         lang={lang}
         theme={theme}
-        userId={currentUser.id}
+        userId={user.id}
       />
     );
   }
 
-  // 3. ONBOARDING ASSESSMENT (If user has not taken assessment or retake requested)
+  // 4. ONBOARDING ASSESSMENT (If user has not finished assessment or retake requested)
   if (!profile.onboardingCompleted || forceAssessment) {
     return (
       <OnboardingAssessment
         initialProfile={profile}
         onComplete={(updates) => {
-          const updated = saveUserProfile(currentUser.id, updates);
-          setProfile(updated);
+          updateProfile(updates);
           setForceAssessment(false);
         }}
         lang={lang}
@@ -238,7 +190,7 @@ export default function AppRoot() {
     );
   }
 
-  // Handlers for user logs and metrics
+  // Handlers for user daily logs and metrics
   const handleSubmitDailyLog = (logData: {
     status: LogStatus;
     urgeIntensity: number;
@@ -247,7 +199,7 @@ export default function AppRoot() {
     journalNote: string;
   }) => {
     const today = new Date().toISOString().split("T")[0];
-    saveUserDailyLog(currentUser.id, {
+    addDailyLog({
       logDate: today,
       status: logData.status,
       urgeIntensity: logData.urgeIntensity,
@@ -256,9 +208,6 @@ export default function AppRoot() {
       journalNote: logData.journalNote,
     });
 
-    const refreshedLogs = getUserDailyLogs(currentUser.id);
-    setDailyLogs(refreshedLogs);
-
     if (logData.status === "urge_defeated") {
       const updatedUrges = profile.urgesDefeatedCount + 1;
       const updatedIndex = calculateAddictionSeverityIndex(
@@ -266,7 +215,7 @@ export default function AppRoot() {
         profile.longestStreakDays,
         updatedUrges
       );
-      handleUpdateProfile({
+      updateProfile({
         urgesDefeatedCount: updatedUrges,
         currentAddictionIndex: updatedIndex,
       });
@@ -275,7 +224,7 @@ export default function AppRoot() {
 
   const handleVictorySOS = (journalNote?: string) => {
     const today = new Date().toISOString().split("T")[0];
-    saveUserDailyLog(currentUser.id, {
+    addDailyLog({
       logDate: today,
       status: "urge_defeated",
       urgeIntensity: 8,
@@ -291,18 +240,15 @@ export default function AppRoot() {
       updatedUrges
     );
 
-    const updated = saveUserProfile(currentUser.id, {
+    updateProfile({
       urgesDefeatedCount: updatedUrges,
       currentAddictionIndex: updatedIndex,
     });
-
-    setProfile(updated);
-    setDailyLogs(getUserDailyLogs(currentUser.id));
   };
 
   const handleRelapseReset = (environmentalAdjustment: string) => {
     const today = new Date().toISOString().split("T")[0];
-    saveUserDailyLog(currentUser.id, {
+    addDailyLog({
       logDate: today,
       status: "relapse",
       urgeIntensity: 9,
@@ -311,21 +257,17 @@ export default function AppRoot() {
       journalNote: `Relapse occurred. Environmental change committed: ${environmentalAdjustment}`,
     });
 
-    const updated = saveUserProfile(currentUser.id, {
+    updateProfile({
       streakStartTimestamp: new Date().toISOString(),
     });
-
-    setProfile(updated);
-    setDailyLogs(getUserDailyLogs(currentUser.id));
   };
 
   const handleSaveVerse = (reference: string, text: string) => {
-    saveUserVerse(currentUser.id, {
+    addSavedVerse({
       reference,
       verseText: text,
       personalReflection: "Saved from daily Unbroken Scripture meditation.",
     });
-    setSavedVerses(getUserSavedVerses(currentUser.id));
   };
 
   const handleSaveVerseWithReflection = (
@@ -333,26 +275,19 @@ export default function AppRoot() {
     text: string,
     reflection: string
   ) => {
-    saveUserVerse(currentUser.id, {
+    addSavedVerse({
       reference,
       verseText: text,
       personalReflection: reflection,
     });
-    setSavedVerses(getUserSavedVerses(currentUser.id));
   };
 
   const handleRemoveSavedVerse = (id: string) => {
-    removeUserVerse(currentUser.id, id);
-    setSavedVerses(getUserSavedVerses(currentUser.id));
+    removeSavedVerse(id);
   };
 
   const handleResetData = (type: "fresh" | "demo") => {
-    resetAppData(type);
-    const refreshedProfile = getUserProfile(currentUser.id);
-    setProfile(refreshedProfile);
-    setDailyLogs(getUserDailyLogs(currentUser.id));
-    setSavedVerses(getUserSavedVerses(currentUser.id));
-
+    resetApp(type);
     if (type === "fresh") {
       setForceAssessment(true);
     }
@@ -387,18 +322,6 @@ export default function AppRoot() {
             : "bg-[#090D16] border-x border-slate-900"
         } flex flex-col relative px-4 pt-3 shadow-2xl transition-colors duration-200`}
       >
-        {/* Automatic Network Reconnect Toast */}
-        {justReconnected && (
-          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-2.5 rounded-2xl bg-emerald-600 text-white shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2 text-xs font-bold animate-bounce">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>
-              {lang === "ar"
-                ? "✓ عاد الاتصال بالإنترنت: تمت مزامنة كافة بياناتك تلقائياً مع Supabase!"
-                : "✓ Back online: Automatically synced all your data to Supabase!"}
-            </span>
-          </div>
-        )}
-
         {/* App Top Bar */}
         <header
           className={`flex items-center justify-between py-2 border-b mb-3 transition-colors ${
@@ -428,46 +351,58 @@ export default function AppRoot() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            {/* Real-Time Network & Cloud Sync Status */}
+            {/* STEP 5.2: Live Sync Health Badge (Synced, Saving..., or Offline Mode) */}
             <button
-              onClick={() => syncNow()}
+              onClick={() => refreshData()}
               title={
-                !isOnline
+                syncStatus === "offline" || !isOnline
                   ? lang === "ar"
-                    ? "العمل بدون إنترنت - ستتم المزامنة تلقائياً عند توفر الشبكة"
-                    : "Offline mode - Auto-syncs when network reconnects"
-                  : syncState === "syncing"
+                    ? "وضع غير متصل - سيتم رفع التعديلات تلقائياً فور عودة الاتصال"
+                    : "Offline Mode - Queued changes sync when online"
+                  : syncStatus === "syncing"
                   ? lang === "ar"
-                    ? "جاري المزامنة مع Supabase..."
-                    : "Syncing with Supabase..."
+                    ? "جاري المزامنة مع سحابة Supabase..."
+                    : "Saving to Supabase Cloud..."
+                  : syncStatus === "error"
+                  ? lang === "ar"
+                    ? "تنبيه مزامنة - انقر لإعادة المحاولة"
+                    : "Sync Alert - Click to retry"
                   : lang === "ar"
-                  ? "متصل ومُتزامن تلقائياً مع Supabase"
-                  : "Connected & Auto-Synced with Supabase"
+                  ? "متزامن مع سحابة Supabase ومحفوظ محلياً (0ms)"
+                  : "Synced to Supabase Cloud & Local (0ms)"
               }
-              className={`px-2 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all ${
-                !isOnline
+              className={`px-2.5 py-1 rounded-full border text-[10px] font-bold flex items-center gap-1.5 transition-all active:scale-95 ${
+                syncStatus === "offline" || !isOnline
                   ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                  : syncState === "syncing"
+                  : syncStatus === "syncing"
                   ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
+                  : syncStatus === "error"
+                  ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
                   : isLight
                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm"
                   : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
               }`}
             >
-              {!isOnline ? (
+              {syncStatus === "offline" || !isOnline ? (
                 <>
-                  <CloudOff className="w-3 h-3 text-amber-500" />
-                  <span className="hidden sm:inline">{lang === "ar" ? "محلي" : "Offline"}</span>
+                  <CloudOff className="w-3 h-3 text-amber-500 shrink-0" />
+                  <span>{lang === "ar" ? "وضع غير متصل" : "Offline Mode"}</span>
                 </>
-              ) : syncState === "syncing" ? (
+              ) : syncStatus === "syncing" ? (
                 <>
-                  <CloudUpload className="w-3 h-3 text-indigo-400 animate-spin" />
-                  <span className="hidden sm:inline">{lang === "ar" ? "مزامنة" : "Syncing"}</span>
+                  <CloudUpload className="w-3 h-3 text-indigo-400 animate-spin shrink-0" />
+                  <span>{lang === "ar" ? "جاري الحفظ..." : "Saving..."}</span>
+                </>
+              ) : syncStatus === "error" ? (
+                <>
+                  <CloudOff className="w-3 h-3 text-rose-500 shrink-0" />
+                  <span>{lang === "ar" ? "تنبيه مزامنة" : "Sync Alert"}</span>
                 </>
               ) : (
                 <>
-                  <Cloud className="w-3 h-3 text-emerald-500" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
+                  <Cloud className="w-3 h-3 text-emerald-500 shrink-0" />
+                  <span>{lang === "ar" ? "متزامن" : "Synced"}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
                 </>
               )}
             </button>
@@ -522,7 +457,7 @@ export default function AppRoot() {
                   ? "bg-white border-slate-200 text-slate-500 hover:text-rose-500 shadow-sm"
                   : "bg-slate-900 border-slate-800 text-slate-400 hover:text-rose-400"
               }`}
-              title={`${t.header.signOutTitle} (${currentUser.email})`}
+              title={`${t.header.signOutTitle} (${user.email})`}
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -577,8 +512,8 @@ export default function AppRoot() {
           {currentTab === "shield" && (
             <ShieldSettings
               profile={profile}
-              currentUser={currentUser}
-              onUpdateProfile={handleUpdateProfile}
+              currentUser={user}
+              onUpdateProfile={updateProfile}
               onRetakeAssessment={() => setForceAssessment(true)}
               onResetData={handleResetData}
               onLockApp={() => setIsUnlocked(false)}

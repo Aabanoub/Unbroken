@@ -1,108 +1,238 @@
 -- ==============================================================================
--- UNBROKEN: Recovery PWA — Supabase PostgreSQL Database Schema
+-- UNBROKEN (Unbroken Daily) Multi-Device Supabase Cloud Database Schema
 -- "Clear Eyes, Clean Mind."
--- 100% Free Tier Compatible with Row Level Security (RLS)
+-- Full RLS Security, Automatic Profile Creation Trigger, & Realtime Pub
 -- ==============================================================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- ------------------------------------------------------------------------------
 -- 1. PROFILES TABLE
--- Holds the user's recovery profile, clinical baseline, goals, and privacy PIN
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT,
     display_name TEXT DEFAULT 'Disciple',
-    onboarding_score INTEGER DEFAULT 0,
-    current_addiction_index NUMERIC(5,2) DEFAULT 0.0,
-    addiction_tier TEXT DEFAULT 'Level 1 — Mild Habitual Loop',
-    goal_days INTEGER DEFAULT 21,
-    streak_start_timestamp TIMESTAMPTZ DEFAULT NOW(),
-    longest_streak_days INTEGER DEFAULT 0,
-    urges_defeated_count INTEGER DEFAULT 0,
     pin_code TEXT DEFAULT NULL,
+    assessment_score INTEGER DEFAULT 0,
+    roadmap_days INTEGER DEFAULT 21,
+    streak_start_date TIMESTAMPTZ DEFAULT NOW(),
+    current_streak INTEGER DEFAULT 0,
+    longest_streak INTEGER DEFAULT 0,
     disguise_title BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    language TEXT DEFAULT 'en',
+    theme TEXT DEFAULT 'dark',
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ------------------------------------------------------------------------------
 -- 2. DAILY_LOGS TABLE
--- Tracks daily check-ins, relapse/victory events, HALT triggers, and reflections
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.daily_logs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-    log_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    status TEXT NOT NULL CHECK (status IN ('clean', 'urge_defeated', 'relapse')),
-    urge_intensity INTEGER CHECK (urge_intensity BETWEEN 1 AND 10),
-    triggers TEXT[] DEFAULT '{}',
-    time_of_day TEXT CHECK (time_of_day IN ('Morning', 'Afternoon', 'Evening', 'Late Night 11PM-3AM', 'Late Night')),
-    journal_note TEXT,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    log_date DATE NOT NULL,
+    victory BOOLEAN NOT NULL DEFAULT TRUE,
+    urge_level INTEGER DEFAULT 0 CHECK (urge_level BETWEEN 0 AND 10),
+    halt_triggers TEXT[] DEFAULT '{}',
+    high_risk_hour INTEGER DEFAULT 22 CHECK (high_risk_hour BETWEEN 0 AND 23),
+    notes TEXT DEFAULT '',
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_user_daily_log UNIQUE (user_id, log_date)
 );
 
+-- ------------------------------------------------------------------------------
 -- 3. SAVED_VERSES TABLE
--- User's saved NKJV Scripture vault and personal meditative reflections
+-- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.saved_verses (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     reference TEXT NOT NULL,
-    verse_text TEXT NOT NULL,
-    personal_reflection TEXT,
+    text_en TEXT NOT NULL,
+    text_ar TEXT DEFAULT '',
+    personal_reflection TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. ROW LEVEL SECURITY (RLS)
+-- ------------------------------------------------------------------------------
+-- 4. ROW LEVEL SECURITY (RLS) POLICIES
+-- Strict Isolation: Users can ONLY access & mutate their own data via auth.uid()
+-- ------------------------------------------------------------------------------
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_verses ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated users to manage their own profile
-CREATE POLICY "Users can view their own profile"
+-- Clean existing policies if re-running
+DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_delete_own" ON public.profiles;
+
+CREATE POLICY "profiles_select_own"
     ON public.profiles FOR SELECT
+    TO authenticated
     USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert their own profile"
+CREATE POLICY "profiles_insert_own"
     ON public.profiles FOR INSERT
+    TO authenticated
     WITH CHECK (auth.uid() = id);
 
-CREATE POLICY "Users can update their own profile"
+CREATE POLICY "profiles_update_own"
     ON public.profiles FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "profiles_delete_own"
+    ON public.profiles FOR DELETE
+    TO authenticated
     USING (auth.uid() = id);
 
--- Daily Logs policies
-CREATE POLICY "Users can view their own daily logs"
+-- Daily Logs RLS Policies
+DROP POLICY IF EXISTS "daily_logs_select_own" ON public.daily_logs;
+DROP POLICY IF EXISTS "daily_logs_insert_own" ON public.daily_logs;
+DROP POLICY IF EXISTS "daily_logs_update_own" ON public.daily_logs;
+DROP POLICY IF EXISTS "daily_logs_delete_own" ON public.daily_logs;
+
+CREATE POLICY "daily_logs_select_own"
     ON public.daily_logs FOR SELECT
+    TO authenticated
     USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can insert their own daily logs"
+CREATE POLICY "daily_logs_insert_own"
     ON public.daily_logs FOR INSERT
+    TO authenticated
     WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own daily logs"
+CREATE POLICY "daily_logs_update_own"
     ON public.daily_logs FOR UPDATE
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own daily logs"
-    ON public.daily_logs FOR DELETE
-    USING (auth.uid() = user_id);
-
--- Saved Verses policies
-CREATE POLICY "Users can view their own saved verses"
-    ON public.saved_verses FOR SELECT
-    USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own saved verses"
-    ON public.saved_verses FOR INSERT
+    TO authenticated
+    USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own saved verses"
+CREATE POLICY "daily_logs_delete_own"
+    ON public.daily_logs FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+-- Saved Verses RLS Policies
+DROP POLICY IF EXISTS "saved_verses_select_own" ON public.saved_verses;
+DROP POLICY IF EXISTS "saved_verses_insert_own" ON public.saved_verses;
+DROP POLICY IF EXISTS "saved_verses_update_own" ON public.saved_verses;
+DROP POLICY IF EXISTS "saved_verses_delete_own" ON public.saved_verses;
+
+CREATE POLICY "saved_verses_select_own"
+    ON public.saved_verses FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "saved_verses_insert_own"
+    ON public.saved_verses FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "saved_verses_update_own"
     ON public.saved_verses FOR UPDATE
-    USING (auth.uid() = user_id);
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY "Users can delete their own saved verses"
+CREATE POLICY "saved_verses_delete_own"
     ON public.saved_verses FOR DELETE
+    TO authenticated
     USING (auth.uid() = user_id);
 
--- Helpful Indexing for fast query speeds on free tier
+-- ------------------------------------------------------------------------------
+-- 5. AUTOMATIC NEW USER PROFILE TRIGGER
+-- Automatically creates a profile row in public.profiles on auth.users signup
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.profiles (
+        id,
+        email,
+        display_name,
+        assessment_score,
+        roadmap_days,
+        streak_start_date,
+        current_streak,
+        longest_streak,
+        disguise_title,
+        language,
+        theme,
+        updated_at,
+        created_at
+    )
+    VALUES (
+        NEW.id,
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1), 'Disciple'),
+        0,
+        21,
+        NOW(),
+        0,
+        0,
+        FALSE,
+        'en',
+        'dark',
+        NOW(),
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        email = EXCLUDED.email,
+        updated_at = NOW();
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_user();
+
+-- ------------------------------------------------------------------------------
+-- 6. REALTIME REPLICATION (For Cross-Device Synchronized Listening)
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+ALTER TABLE public.daily_logs REPLICA IDENTITY FULL;
+ALTER TABLE public.saved_verses REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'profiles'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'daily_logs'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_logs;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND tablename = 'saved_verses'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.saved_verses;
+    END IF;
+END $$;
+
+-- ------------------------------------------------------------------------------
+-- 7. PERFORMANCE INDEXES
+-- ------------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON public.profiles(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_daily_logs_user_date ON public.daily_logs(user_id, log_date DESC);
-CREATE INDEX IF NOT EXISTS idx_saved_verses_user ON public.saved_verses(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_logs_updated_at ON public.daily_logs(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_verses_user_created ON public.saved_verses(user_id, created_at DESC);

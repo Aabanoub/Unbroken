@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { AppProviders } from "@/components/AppProviders";
 
 export const metadata: Metadata = {
   title: "Unbroken",
@@ -39,7 +40,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="bg-[#090D16] text-slate-100 min-h-screen antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );
