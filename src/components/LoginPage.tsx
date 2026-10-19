@@ -5,7 +5,6 @@ import { AuthUser, Language, ThemeMode } from "@/types";
 import {
   authenticateUser,
   registerNewUser,
-  loginAsDemoGuest,
   getLocalAccountsRegistry,
 } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -83,8 +82,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         const res = await authenticateUser(email, password);
         if (res.success && res.user) {
           onAuthSuccess(res.user);
+        } else if (res.needsProfileCreation) {
+          setMode("signup");
+          setErrorMessage(
+            lang === "ar"
+              ? "لم يتم العثور على بيانات ملف شخصي لهذا البريد. يرجى إنشاء وتهيئة حسابك."
+              : "No profile data found for this email. Please create and initialize your account."
+          );
         } else {
-          setErrorMessage(getLocalizedErrorMessage(res.error, lang) || t.auth.errNoAccount);
+          setErrorMessage(
+            lang === "ar"
+              ? "لم يتم العثور على حساب أو كلمة المرور غير صحيحة. إذا كنت مستخدماً جديداً، يرجى التبديل إلى 'إنشاء حساب'."
+              : "Account not found or incorrect password. If you are new, please switch to 'Create Account'."
+          );
         }
       } else {
         const res = await registerNewUser(email, password, displayName);
@@ -99,11 +109,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = () => {
-    const demoUser = loginAsDemoGuest();
-    onAuthSuccess(demoUser);
   };
 
   return (
@@ -368,47 +373,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
           </button>
         </form>
-
-        {/* Divider */}
-        <div className="relative flex items-center justify-center py-1">
-          <div className={`border-t w-full ${isLight ? "border-slate-200" : "border-slate-800"}`} />
-          <span
-            className={`px-3 text-[10px] uppercase tracking-widest font-semibold shrink-0 ${
-              isLight ? "bg-white text-slate-500" : "bg-slate-900 text-slate-500"
-            }`}
-          >
-            {t.auth.orQuick}
-          </span>
-          <div className={`border-t w-full ${isLight ? "border-slate-200" : "border-slate-800"}`} />
-        </div>
-
-        {/* Quick Demo Account Button */}
-        <button
-          type="button"
-          onClick={handleQuickDemo}
-          className={`w-full py-3 px-4 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between group ${
-            isLight
-              ? "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
-              : "bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300"
-          }`}
-        >
-          <div className="flex items-center gap-2.5 text-left">
-            <span className="text-base">👤</span>
-            <div className={lang === "ar" ? "text-right" : "text-left"}>
-              <span className={`font-bold block ${isLight ? "text-slate-900" : "text-white"}`}>
-                {t.auth.demoBtnTitle}
-              </span>
-              <span className={`text-[10px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
-                {t.auth.demoBtnSub}
-              </span>
-            </div>
-          </div>
-          <ArrowRight
-            className={`w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors ${
-              lang === "ar" ? "rotate-180" : ""
-            }`}
-          />
-        </button>
 
         {/* Data Isolation Guarantee */}
         <div

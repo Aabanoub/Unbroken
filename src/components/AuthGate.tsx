@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { AuthUser, Language, ThemeMode } from "@/types";
 import { useStorage } from "@/context/StorageContext";
-import { authenticateUser, registerNewUser, loginAsDemoGuest, getLocalAccountsRegistry } from "@/lib/storage";
+import { authenticateUser, registerNewUser, getLocalAccountsRegistry } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getTranslation, getLocalizedErrorMessage } from "@/lib/i18n";
 import {
@@ -89,14 +89,24 @@ export const AuthGate: React.FC<AuthGateProps> = ({
         const res = await authenticateUser(email, password);
         if (res.success && res.user) {
           setUserSession(res.user);
-        } else {
+        } else if (res.needsProfileCreation) {
+          // Requirement 2: Enforce Account Creation if Database Data is Missing
+          setMode("signup");
           setErrorMessage(
-            getLocalizedErrorMessage(res.error, currentLang) ||
-              t.auth?.errNoAccount ||
-              "Invalid login credentials."
+            currentLang === "ar"
+              ? "لم يتم العثور على بيانات ملف شخصي لهذا البريد. يرجى إنشاء وتهيئة حسابك."
+              : "No profile data found for this email. Please create and initialize your account."
+          );
+        } else {
+          // Requirement 1: Explicit error banner with one-click switch to Create Account
+          setErrorMessage(
+            currentLang === "ar"
+              ? "لم يتم العثور على حساب أو كلمة المرور غير صحيحة. إذا كنت مستخدماً جديداً، يرجى التبديل إلى 'إنشاء حساب'."
+              : "Account not found or incorrect password. If you are new, please switch to 'Create Account'."
           );
         }
       } else {
+        // Requirement 3: Sign-Up Initialization
         const res = await registerNewUser(email, password, displayName);
         if (res.success && res.user) {
           setUserSession(res.user);
@@ -117,11 +127,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = () => {
-    const demoUser = loginAsDemoGuest();
-    setUserSession(demoUser);
   };
 
   return (
@@ -424,47 +429,6 @@ export const AuthGate: React.FC<AuthGateProps> = ({
             )}
           </div>
         </form>
-
-        {/* Divider */}
-        <div className="relative flex items-center justify-center py-1">
-          <div className={`border-t w-full ${isLight ? "border-slate-200" : "border-slate-800"}`} />
-          <span
-            className={`px-3 text-[10px] uppercase tracking-widest font-semibold shrink-0 ${
-              isLight ? "bg-white text-slate-500" : "bg-slate-900 text-slate-500"
-            }`}
-          >
-            {t.auth?.orQuick || "Or Continue With"}
-          </span>
-          <div className={`border-t w-full ${isLight ? "border-slate-200" : "border-slate-800"}`} />
-        </div>
-
-        {/* Quick Demo Account Button */}
-        <button
-          type="button"
-          onClick={handleQuickDemo}
-          className={`w-full py-3 px-4 rounded-xl border text-xs font-semibold transition-all flex items-center justify-between group ${
-            isLight
-              ? "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
-              : "bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-300"
-          }`}
-        >
-          <div className="flex items-center gap-2.5 text-left">
-            <span className="text-base">👤</span>
-            <div className={currentLang === "ar" ? "text-right" : "text-left"}>
-              <span className={`font-bold block ${isLight ? "text-slate-900" : "text-white"}`}>
-                {t.auth?.demoBtnTitle || "Quick Demo Account"}
-              </span>
-              <span className={`text-[10px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
-                {t.auth?.demoBtnSub || "Preview full features with seed streak data"}
-              </span>
-            </div>
-          </div>
-          <ArrowRight
-            className={`w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors ${
-              currentLang === "ar" ? "rotate-180" : ""
-            }`}
-          />
-        </button>
 
         {/* Data Isolation & Privacy Guarantee */}
         <div

@@ -808,73 +808,107 @@ export function saveLocalAccountsRegistry(accounts: LocalUserAccount[]): void {
   }
 }
 
+export interface AuthResult {
+  success: boolean;
+  user?: AuthUser;
+  profile?: UserProfile;
+  needsProfileCreation?: boolean;
+  error?: string;
+  errorCode?: "INVALID_CREDENTIALS" | "NO_PROFILE_ROW" | "GENERAL";
+}
+
 export async function authenticateUser(
   email: string,
   pass: string
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+): Promise<AuthResult> {
   const cleanEmail = email.trim().toLowerCase();
-  let supabaseAuthError: string | null = null;
 
-  // 1. Supabase Cloud Authentication
+  // 1. Strict Supabase Database Verification
   if (isSupabaseConfigured) {
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: pass,
         });
 
-        if (!error && data.user) {
-          const authUser: AuthUser = {
-            id: data.user.id,
-            email: data.user.email || cleanEmail,
-            displayName: data.user.user_metadata?.display_name || cleanEmail.split("@")[0] || "Disciple",
-            isGuest: false,
+        if (authError || !authData?.user) {
+          return {
+            success: false,
+            error: "Account not found or incorrect password. If you are new, please switch to 'Create Account'.",
+            errorCode: "INVALID_CREDENTIALS",
           };
-          saveCurrentSession(authUser);
-          // Hydrate local cache immediately from cloud
-          await fetchUserDataFromCloud(authUser.id);
-          return { success: true, user: authUser };
-        } else if (error) {
-          supabaseAuthError = error.message;
         }
+
+        // Immediately query profiles table in Supabase to verify existence
+        const { data: profileRow, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authData.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.warn("Error querying profile row from database:", profileError.message);
+        }
+
+        // Enforce account creation if profiles row does NOT exist in database
+        if (!profileRow) {
+          return {
+            success: false,
+            needsProfileCreation: true,
+            error: "No profile data found for this email. Please create and initialize your account.",
+            errorCode: "NO_PROFILE_ROW",
+          };
+        }
+
+        const authUser: AuthUser = {
+          id: authData.user.id,
+          email: authData.user.email || cleanEmail,
+          displayName:
+            profileRow.display_name ||
+            authData.user.user_metadata?.display_name ||
+            cleanEmail.split("@")[0] ||
+            "Disciple",
+          isGuest: false,
+        };
+
+        const userProfile = dbProfileToUserProfile(profileRow);
+
+        saveCurrentSession(authUser);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEYS.PROFILE(authUser.id), JSON.stringify(userProfile));
+        }
+
+        await fetchUserDataFromCloud(authUser.id);
+
+        return {
+          success: true,
+          user: authUser,
+          profile: userProfile,
+        };
       } catch (err: any) {
-        supabaseAuthError = err.message;
+        return {
+          success: false,
+          error: err?.message || "Failed to authenticate with database.",
+          errorCode: "GENERAL",
+        };
       }
     }
   }
 
-  // 2. Offline / Local accounts fallback
-  const accounts = getLocalAccountsRegistry();
-  const found = accounts.find((a) => a.email.toLowerCase() === cleanEmail);
-
-  if (found) {
-    if (found.passwordHash !== pass) {
-      return { success: false, error: "Incorrect password. Please try again." };
-    }
-    const authUser: AuthUser = {
-      id: found.id,
-      email: found.email,
-      displayName: found.displayName,
-      isGuest: found.id === DEMO_USER.id,
-    };
-    saveCurrentSession(authUser);
-    return { success: true, user: authUser };
-  }
-
-  if (supabaseAuthError) {
-    return { success: false, error: supabaseAuthError };
-  }
-
-  return { success: false, error: "No account found with this email. Please sign up." };
+  return {
+    success: false,
+    error: "Account not found or incorrect password. If you are new, please switch to 'Create Account'.",
+    errorCode: "INVALID_CREDENTIALS",
+  };
 }
 
 export async function registerNewUser(
   email: string,
   pass: string,
   displayName: string
-): Promise<{ success: boolean; user?: AuthUser; error?: string }> {
+): Promise<{ success: boolean; user?: AuthUser; profile?: UserProfile; error?: string }> {
   const cleanEmail = email.trim().toLowerCase();
   const cleanName = displayName.trim() || cleanEmail.split("@")[0] || "Disciple";
 
@@ -882,7 +916,7 @@ export async function registerNewUser(
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        const { data, error } = await supabase.auth.signUp({
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: cleanEmail,
           password: pass,
           options: {
@@ -890,107 +924,83 @@ export async function registerNewUser(
           },
         });
 
-        if (!error && data.user) {
-          const authUser: AuthUser = {
-            id: data.user.id,
-            email: data.user.email || cleanEmail,
-            displayName: cleanName,
-            isGuest: false,
-          };
-
-          // Save to local registry
-          const accounts = getLocalAccountsRegistry();
-          const existingIdx = accounts.findIndex((a) => a.email.toLowerCase() === cleanEmail);
-          const accountEntry: LocalUserAccount = {
-            id: data.user.id,
-            email: cleanEmail,
-            passwordHash: pass,
-            displayName: cleanName,
-            createdAt: new Date().toISOString(),
-          };
-          if (existingIdx >= 0) accounts[existingIdx] = accountEntry;
-          else accounts.push(accountEntry);
-          saveLocalAccountsRegistry(accounts);
-
-          // Save session
-          saveCurrentSession(authUser);
-
-          // Optimistically create initial profile in local and cloud
-          const initialProfile: UserProfile = {
-            id: data.user.id,
-            displayName: cleanName,
-            onboardingCompleted: false,
-            onboardingScore: 0,
-            currentAddictionIndex: 0,
-            addictionTier: "Level 1 — Mild Habitual Loop",
-            goalDays: 21,
-            initialDopamineSensitivity: 70,
-            streakStartTimestamp: new Date().toISOString(),
-            longestStreakDays: 0,
-            urgesDefeatedCount: 0,
-            pinCode: null,
-            disguiseTitle: false,
-            language: getGlobalLanguage(),
-            theme: getGlobalTheme(),
-            createdAt: new Date().toISOString(),
-          };
-          saveProfile(data.user.id, initialProfile);
-
-          return { success: true, user: authUser };
-        } else if (error) {
-          return { success: false, error: error.message };
+        if (authError || !authData?.user) {
+          return { success: false, error: authError?.message || "Registration failed." };
         }
+
+        const userId = authData.user.id;
+        const nowIso = new Date().toISOString();
+
+        // Immediately insert initial row into public.profiles
+        const initialDbProfile = {
+          id: userId,
+          email: cleanEmail,
+          display_name: cleanName,
+          current_streak: 0,
+          longest_streak: 0,
+          assessment_score: 0,
+          roadmap_days: 21,
+          streak_start_date: nowIso,
+          disguise_title: false,
+          language: getGlobalLanguage(),
+          theme: getGlobalTheme(),
+          updated_at: nowIso,
+          created_at: nowIso,
+        };
+
+        const { data: insertedProfile, error: profileInsertError } = await supabase
+          .from("profiles")
+          .upsert(initialDbProfile)
+          .select("*")
+          .maybeSingle();
+
+        if (profileInsertError) {
+          console.warn("Failed to insert initial profile row:", profileInsertError.message);
+        }
+
+        const authUser: AuthUser = {
+          id: userId,
+          email: cleanEmail,
+          displayName: cleanName,
+          isGuest: false,
+        };
+
+        saveCurrentSession(authUser);
+
+        const initialUserProfile: UserProfile = {
+          id: userId,
+          displayName: cleanName,
+          onboardingCompleted: false, // Guarantees user completes the 8-Question Assessment first
+          onboardingScore: 0,
+          currentAddictionIndex: 0,
+          addictionTier: "Level 1 — Mild Habitual Loop",
+          goalDays: 21,
+          initialDopamineSensitivity: 70,
+          streakStartTimestamp: nowIso,
+          longestStreakDays: 0,
+          urgesDefeatedCount: 0,
+          pinCode: null,
+          disguiseTitle: false,
+          language: getGlobalLanguage(),
+          theme: getGlobalTheme(),
+          createdAt: nowIso,
+        };
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEYS.PROFILE(userId), JSON.stringify(initialUserProfile));
+        }
+
+        return { success: true, user: authUser, profile: initialUserProfile };
       } catch (err: any) {
         return { success: false, error: err.message };
       }
     }
   }
 
-  // Local fallback registration
-  const accounts = getLocalAccountsRegistry();
-  if (accounts.some((a) => a.email.toLowerCase() === cleanEmail)) {
-    return { success: false, error: "An account with this email already exists." };
-  }
-
-  const newId = generateUuid();
-  const authUser: AuthUser = {
-    id: newId,
-    email: cleanEmail,
-    displayName: cleanName,
-    isGuest: false,
+  return {
+    success: false,
+    error: "Supabase connection is required to create an account.",
   };
-
-  accounts.push({
-    id: newId,
-    email: cleanEmail,
-    passwordHash: pass,
-    displayName: cleanName,
-    createdAt: new Date().toISOString(),
-  });
-  saveLocalAccountsRegistry(accounts);
-  saveCurrentSession(authUser);
-
-  const initialProfile: UserProfile = {
-    id: newId,
-    displayName: cleanName,
-    onboardingCompleted: false,
-    onboardingScore: 0,
-    currentAddictionIndex: 0,
-    addictionTier: "Level 1 — Mild Habitual Loop",
-    goalDays: 21,
-    initialDopamineSensitivity: 70,
-    streakStartTimestamp: new Date().toISOString(),
-    longestStreakDays: 0,
-    urgesDefeatedCount: 0,
-    pinCode: null,
-    disguiseTitle: false,
-    language: getGlobalLanguage(),
-    theme: getGlobalTheme(),
-    createdAt: new Date().toISOString(),
-  };
-  saveProfile(newId, initialProfile);
-
-  return { success: true, user: authUser };
 }
 
 export function loginAsDemoGuest(): AuthUser {

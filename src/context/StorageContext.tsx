@@ -99,47 +99,83 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
-  // Initialize session on mount
+  // Initialize session on mount with strict Supabase database verification
   useEffect(() => {
-    const session = getCurrentSession();
-    if (session) {
-      setUser(session);
-      hydrateLocal(session);
-      syncWithCloud(session.id);
-    }
-
-    // Also check Supabase active auth session if configured
     if (isSupabaseConfigured) {
       const supabase = getSupabaseClient();
       if (supabase) {
-        supabase.auth.getSession().then(({ data: { session: supaSession } }) => {
+        supabase.auth.getSession().then(async ({ data: { session: supaSession } }) => {
           if (supaSession?.user) {
-            const authUser: AuthUser = {
-              id: supaSession.user.id,
-              email: supaSession.user.email || "",
-              displayName: supaSession.user.user_metadata?.display_name || supaSession.user.email?.split("@")[0] || "Disciple",
-              isGuest: false,
-            };
-            setUser(authUser);
-            saveCurrentSession(authUser);
-            hydrateLocal(authUser);
-            syncWithCloud(authUser.id);
+            // Strictly query profiles table in database to verify existence
+            const { data: dbProfile, error: profileErr } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", supaSession.user.id)
+              .maybeSingle();
+
+            if (!profileErr && dbProfile) {
+              const authUser: AuthUser = {
+                id: supaSession.user.id,
+                email: supaSession.user.email || "",
+                displayName:
+                  dbProfile.display_name ||
+                  supaSession.user.user_metadata?.display_name ||
+                  supaSession.user.email?.split("@")[0] ||
+                  "Disciple",
+                isGuest: false,
+              };
+              setUser(authUser);
+              saveCurrentSession(authUser);
+              const p = dbProfileToUserProfile(dbProfile);
+              setProfile(p);
+              hydrateLocal(authUser);
+              syncWithCloud(authUser.id);
+            } else {
+              // No valid profile row in database - strictly lock behind AuthGate
+              console.warn("No verified profile row found in database for user:", supaSession.user.id);
+              setUser(null);
+              setProfile(null);
+              saveCurrentSession(null);
+            }
+          } else {
+            // No valid Supabase auth session - strictly lock behind AuthGate
+            setUser(null);
+            setProfile(null);
+            saveCurrentSession(null);
           }
         });
 
         // Listen for auth state changes
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
           if (event === "SIGNED_IN" && supaSession?.user) {
-            const authUser: AuthUser = {
-              id: supaSession.user.id,
-              email: supaSession.user.email || "",
-              displayName: supaSession.user.user_metadata?.display_name || supaSession.user.email?.split("@")[0] || "Disciple",
-              isGuest: false,
-            };
-            setUser(authUser);
-            saveCurrentSession(authUser);
-            hydrateLocal(authUser);
-            syncWithCloud(authUser.id);
+            const { data: dbProfile } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", supaSession.user.id)
+              .maybeSingle();
+
+            if (dbProfile) {
+              const authUser: AuthUser = {
+                id: supaSession.user.id,
+                email: supaSession.user.email || "",
+                displayName:
+                  dbProfile.display_name ||
+                  supaSession.user.user_metadata?.display_name ||
+                  supaSession.user.email?.split("@")[0] ||
+                  "Disciple",
+                isGuest: false,
+              };
+              setUser(authUser);
+              saveCurrentSession(authUser);
+              const p = dbProfileToUserProfile(dbProfile);
+              setProfile(p);
+              hydrateLocal(authUser);
+              syncWithCloud(authUser.id);
+            } else {
+              setUser(null);
+              setProfile(null);
+              saveCurrentSession(null);
+            }
           } else if (event === "SIGNED_OUT") {
             setUser(null);
             setProfile(null);
@@ -152,6 +188,15 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return () => {
           authListener.subscription.unsubscribe();
         };
+      }
+    } else {
+      const session = getCurrentSession();
+      if (session && !session.isGuest) {
+        setUser(session);
+        hydrateLocal(session);
+      } else {
+        setUser(null);
+        setProfile(null);
       }
     }
   }, [hydrateLocal, syncWithCloud]);
