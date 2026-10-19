@@ -175,20 +175,24 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setSyncStatus("offline");
     };
 
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible" && navigator.onLine && user) {
-        syncWithCloud(user.id);
+    const handleFocusOrVisibility = () => {
+      if (typeof window !== "undefined" && navigator.onLine && user) {
+        flushSyncQueue().then(() => {
+          syncWithCloud(user.id);
+        });
       }
     };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
-      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
     };
   }, [user, syncWithCloud]);
 

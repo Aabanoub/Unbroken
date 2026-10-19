@@ -12,7 +12,7 @@ export const STORAGE_KEYS = {
   USERS_REGISTRY: "unbroken_users_registry_v2",
   GLOBAL_LANG: "unbroken_global_lang_v2",
   GLOBAL_THEME: "unbroken_global_theme_v2",
-  SYNC_QUEUE: "unbroken_sync_queue_v2",
+  SYNC_QUEUE: "unbroken_sync_queue",
   LAST_CLOUD_SYNC: (userId: string) => `unbroken_last_sync_${userId}`,
   PROFILE: (userId: string) => `unbroken_profile_${userId}`,
   LOGS: (userId: string) => `unbroken_logs_${userId}`,
@@ -296,7 +296,7 @@ export function savedVerseToDbVerse(v: Partial<SavedVerse>) {
 export function getSyncQueue(): SyncQueueItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE);
+    const raw = localStorage.getItem(STORAGE_KEYS.SYNC_QUEUE) || localStorage.getItem("unbroken_sync_queue_v2");
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];

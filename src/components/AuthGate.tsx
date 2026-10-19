@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { AuthUser, Language, ThemeMode } from "@/types";
 import { useStorage } from "@/context/StorageContext";
-import { authenticateUser, registerNewUser, loginAsDemoGuest } from "@/lib/storage";
+import { authenticateUser, registerNewUser, loginAsDemoGuest, getLocalAccountsRegistry } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getTranslation, getLocalizedErrorMessage } from "@/lib/i18n";
 import {
@@ -21,6 +21,8 @@ import {
   Sun,
   Moon,
   Loader2,
+  UserPlus,
+  LogIn,
 } from "lucide-react";
 
 interface AuthGateProps {
@@ -40,7 +42,14 @@ export const AuthGate: React.FC<AuthGateProps> = ({
 }) => {
   const { user, profile, setUserSession } = useStorage();
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // Default to 'signup' (Create Account) for new visitors; only default to 'login' if an account already exists on device
+  const [mode, setMode] = useState<"signup" | "login">(() => {
+    if (typeof window !== "undefined") {
+      const accounts = getLocalAccountsRegistry();
+      if (accounts && accounts.length > 0) return "login";
+    }
+    return "signup";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -202,7 +211,7 @@ export const AuthGate: React.FC<AuthGateProps> = ({
             : "bg-slate-900/90 border-slate-800"
         }`}
       >
-        {/* Tab Switcher */}
+        {/* Tab Switcher: Create Account is primary for new users */}
         <div
           className={`flex rounded-2xl p-1 text-xs font-semibold border ${
             isLight ? "bg-slate-100 border-slate-200" : "bg-slate-950 border-slate-800"
@@ -211,27 +220,10 @@ export const AuthGate: React.FC<AuthGateProps> = ({
           <button
             type="button"
             onClick={() => {
-              setMode("login");
-              setErrorMessage(null);
-            }}
-            className={`flex-1 py-2.5 rounded-xl transition-all ${
-              mode === "login"
-                ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
-                : isLight
-                ? "text-slate-600 hover:text-slate-900"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            {t.auth?.signIn || "Sign In"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
               setMode("signup");
               setErrorMessage(null);
             }}
-            className={`flex-1 py-2.5 rounded-xl transition-all ${
+            className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === "signup"
                 ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
                 : isLight
@@ -239,15 +231,53 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            {t.auth?.createAccount || "Create Account"}
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>{t.auth?.createAccount || "Create Account"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              mode === "login"
+                ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>{t.auth?.signIn || "Sign In"}</span>
           </button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert with Quick Switch to Sign Up if account not found */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs flex items-start gap-2">
-            <span className="shrink-0 text-base">⚠️</span>
-            <span>{errorMessage}</span>
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs space-y-2 animate-fade-in">
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 text-base">⚠️</span>
+              <span className="font-medium leading-relaxed">{errorMessage}</span>
+            </div>
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  setErrorMessage(null);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-emerald-500/30"
+              >
+                <span>
+                  {currentLang === "ar"
+                    ? "ليس لديك حساب بعد؟ انقر هنا لإنشاء حسابك الآن"
+                    : "No account yet? Click here to Create Account now"}
+                </span>
+                <ArrowRight className={`w-3.5 h-3.5 ${currentLang === "ar" ? "rotate-180" : ""}`} />
+              </button>
+            )}
           </div>
         )}
 
@@ -346,18 +376,53 @@ export const AuthGate: React.FC<AuthGateProps> = ({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>{t.auth?.connecting || "Authenticating..."}</span>
               </span>
-            ) : mode === "login" ? (
-              <>
-                <span>{t.auth?.submitSignIn || "Sign In to Unbroken"}</span>
-                <ArrowRight className={`w-4 h-4 ${currentLang === "ar" ? "rotate-180" : ""}`} />
-              </>
-            ) : (
+            ) : mode === "signup" ? (
               <>
                 <span>{t.auth?.submitSignUp || "Create Unbroken Account"}</span>
                 <ArrowRight className={`w-4 h-4 ${currentLang === "ar" ? "rotate-180" : ""}`} />
               </>
+            ) : (
+              <>
+                <span>{t.auth?.submitSignIn || "Sign In to Unbroken"}</span>
+                <ArrowRight className={`w-4 h-4 ${currentLang === "ar" ? "rotate-180" : ""}`} />
+              </>
             )}
           </button>
+
+          {/* Quick Helper Toggle Link */}
+          <div className="text-center pt-1">
+            {mode === "signup" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setErrorMessage(null);
+                }}
+                className={`text-[11px] font-semibold underline underline-offset-4 transition-colors ${
+                  isLight ? "text-slate-600 hover:text-emerald-600" : "text-slate-400 hover:text-emerald-400"
+                }`}
+              >
+                {currentLang === "ar"
+                  ? "لديك حساب بالفعل؟ تسجيل الدخول"
+                  : "Already have an account? Sign In"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  setErrorMessage(null);
+                }}
+                className={`text-[11px] font-semibold underline underline-offset-4 transition-colors ${
+                  isLight ? "text-slate-600 hover:text-emerald-600" : "text-slate-400 hover:text-emerald-400"
+                }`}
+              >
+                {currentLang === "ar"
+                  ? "مستخدم جديد؟ إنشاء حساب للبدء"
+                  : "New to Unbroken? Create Account to begin"}
+              </button>
+            )}
+          </div>
         </form>
 
         {/* Divider */}

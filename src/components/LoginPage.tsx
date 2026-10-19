@@ -6,6 +6,7 @@ import {
   authenticateUser,
   registerNewUser,
   loginAsDemoGuest,
+  getLocalAccountsRegistry,
 } from "@/lib/storage";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getTranslation, getLocalizedErrorMessage } from "@/lib/i18n";
@@ -24,6 +25,8 @@ import {
   Globe,
   Sun,
   Moon,
+  UserPlus,
+  LogIn,
 } from "lucide-react";
 
 interface LoginPageProps {
@@ -41,7 +44,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   onToggleLang,
   onToggleTheme,
 }) => {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // Default to 'signup' (Create Account) for new visitors; only default to 'login' if an account already exists on device
+  const [mode, setMode] = useState<"signup" | "login">(() => {
+    if (typeof window !== "undefined") {
+      const accounts = getLocalAccountsRegistry();
+      if (accounts && accounts.length > 0) return "login";
+    }
+    return "signup";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -183,7 +193,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             : "bg-slate-900/90 border-slate-800"
         }`}
       >
-        {/* Tab Switcher */}
+        {/* Tab Switcher: Create Account is primary for new users */}
         <div
           className={`flex rounded-2xl p-1 text-xs font-semibold border ${
             isLight ? "bg-slate-100 border-slate-200" : "bg-slate-950 border-slate-800"
@@ -192,27 +202,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <button
             type="button"
             onClick={() => {
-              setMode("login");
-              setErrorMessage(null);
-            }}
-            className={`flex-1 py-2.5 rounded-xl transition-all ${
-              mode === "login"
-                ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
-                : isLight
-                ? "text-slate-600 hover:text-slate-900"
-                : "text-slate-400 hover:text-white"
-            }`}
-          >
-            {t.auth.signIn}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
               setMode("signup");
               setErrorMessage(null);
             }}
-            className={`flex-1 py-2.5 rounded-xl transition-all ${
+            className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
               mode === "signup"
                 ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
                 : isLight
@@ -220,15 +213,53 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            {t.auth.createAccount}
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>{t.auth.createAccount}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login");
+              setErrorMessage(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              mode === "login"
+                ? "bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/20"
+                : isLight
+                ? "text-slate-600 hover:text-slate-900"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>{t.auth.signIn}</span>
           </button>
         </div>
 
-        {/* Error Alert */}
+        {/* Error Alert with Quick Switch to Sign Up if account not found */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs flex items-start gap-2">
-            <span className="shrink-0 text-base">⚠️</span>
-            <span>{errorMessage}</span>
+          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-500 text-xs space-y-2 animate-fade-in">
+            <div className="flex items-start gap-2">
+              <span className="shrink-0 text-base">⚠️</span>
+              <span className="font-medium leading-relaxed">{errorMessage}</span>
+            </div>
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  setErrorMessage(null);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center gap-1.5 transition-all border border-emerald-500/30"
+              >
+                <span>
+                  {lang === "ar"
+                    ? "ليس لديك حساب بعد؟ انقر هنا لإنشاء حسابك الآن"
+                    : "No account yet? Click here to Create Account now"}
+                </span>
+                <ArrowRight className={`w-3.5 h-3.5 ${lang === "ar" ? "rotate-180" : ""}`} />
+              </button>
+            )}
           </div>
         )}
 
