@@ -162,21 +162,26 @@ export function dbProfileToUserProfile(db: any): UserProfile {
   const urgesDefeated = db.urges_defeated_count || 0;
 
   let tier: UserProfile["addictionTier"] = "Level 1 — Mild Habitual Loop";
-  if (assessmentScore >= 24) {
+  if (assessmentScore >= 21) {
     tier = "Level 3 — High Neurological Dependency";
-  } else if (assessmentScore >= 13) {
+  } else if (assessmentScore >= 11) {
     tier = "Level 2 — Moderate Compulsive Dependency";
   }
+
+  // Onboarding is only complete if user has completed the assessment (score > 0 and roadmap assigned)
+  const hasAssessment = db.assessment_score !== null && db.assessment_score !== undefined && Number(db.assessment_score) > 0;
+  const hasRoadmap = Boolean(db.roadmap_days && Number(db.roadmap_days) > 0);
+  const onboardingCompleted = hasAssessment && hasRoadmap;
 
   return {
     id: db.id,
     displayName: db.display_name || "Disciple",
-    onboardingCompleted: (assessmentScore > 0) || (db.roadmap_days > 0),
+    onboardingCompleted,
     onboardingScore: assessmentScore,
     currentAddictionIndex: calculateAddictionSeverityIndex(assessmentScore, currentStreak, urgesDefeated),
     addictionTier: tier,
     goalDays: db.roadmap_days || 21,
-    initialDopamineSensitivity: assessmentScore >= 24 ? 20 : assessmentScore >= 13 ? 45 : 70,
+    initialDopamineSensitivity: assessmentScore >= 21 ? 20 : assessmentScore >= 11 ? 45 : 70,
     streakStartTimestamp: db.streak_start_date || db.created_at || new Date().toISOString(),
     longestStreakDays: longestStreak,
     urgesDefeatedCount: urgesDefeated,
@@ -661,8 +666,12 @@ export function deleteVerse(userId: string, verseId: string): void {
 }
 
 export function resetStreak(userId: string): UserProfile {
+  const current = getUserProfile(userId);
+  const currentStreak = calculateStreakFromDate(current.streakStartTimestamp);
+  const newLongest = Math.max(current.longestStreakDays || 0, currentStreak);
   return saveProfile(userId, {
     streakStartTimestamp: new Date().toISOString(),
+    longestStreakDays: newLongest,
   });
 }
 
@@ -1035,21 +1044,47 @@ export function calculateStreakFromDate(startDateStr: string | Date): number {
 
 export function calculate30DayVictoryRate(logs: DailyLog[]): number {
   if (!logs || logs.length === 0) return 100;
-  const last30 = logs.slice(-30);
-  const cleanOrVictorious = last30.filter((l) => l.status === "clean" || l.status === "urge_defeated").length;
-  const rate = Math.round((cleanOrVictorious / Math.max(last30.length, 1)) * 100);
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(now.getDate() - 30);
+  const cutoffStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+  // Filter logs within the last 30 calendar days
+  const recentLogs = logs.filter((l) => {
+    const dateStr = l.logDate || (l.createdAt ? l.createdAt.split("T")[0] : "");
+    return dateStr >= cutoffStr;
+  });
+
+  const relevantLogs = recentLogs.length > 0 ? recentLogs : logs.slice(-30);
+
+  const cleanOrVictorious = relevantLogs.filter(
+    (l) => l.status === "clean" || l.status === "urge_defeated"
+  ).length;
+
+  const rate = Math.round((cleanOrVictorious / Math.max(relevantLogs.length, 1)) * 100);
   return Math.min(Math.max(rate, 0), 100);
 }
 
 export function calculateAddictionSeverityIndex(
   baselineScore: number,
   streakDays: number,
-  urgesDefeated: number
+  urgesDefeated: number,
+  victoryRate: number = 100,
+  avgUrgeLevel?: number
 ): number {
-  const dayReduction = Math.min(streakDays * 0.18, baselineScore * 0.5);
-  const urgeReduction = Math.min(urgesDefeated * 0.35, baselineScore * 0.3);
-  const current = Math.max(baselineScore - dayReduction - urgeReduction, 1.2);
-  return Number(current.toFixed(1));
+  const base = Math.max(baselineScore, 1);
+  const dayReduction = Math.min(streakDays * 0.18, base * 0.4);
+  const urgeReduction = Math.min(urgesDefeated * 0.35, base * 0.25);
+
+  // Victory rate adjustment: 100% win rate provides full bonus reduction; relapses lower it
+  const victoryBonus = (base * 0.15) * (Math.min(Math.max(victoryRate, 0), 100) / 100);
+
+  // Average urge level adjustment: cravings above 5 slow down severity index reduction slightly
+  const urgePenalty = avgUrgeLevel !== undefined && avgUrgeLevel > 5 ? (avgUrgeLevel - 5) * 0.15 : 0;
+
+  const current = Math.max(base - dayReduction - urgeReduction - victoryBonus + urgePenalty, 1.0);
+  return Number(Math.min(current, base).toFixed(1));
 }
 
 export function resetAppData(type: "fresh" | "demo"): void {

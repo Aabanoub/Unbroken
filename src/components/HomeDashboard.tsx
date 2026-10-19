@@ -89,15 +89,12 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
     BIBLICAL_MILESTONES[BIBLICAL_MILESTONES.length - 1];
   const nextMilestone = getLocalizedMilestone(rawNextMilestone, lang);
 
-  // Milestone Progress Ring calculation
-  const prevDays = rawCurrentMilestone.days === rawNextMilestone.days ? 0 : rawCurrentMilestone.days;
-  const progressRatio =
-    rawNextMilestone.days === prevDays
-      ? 1
-      : Math.min(Math.max((timeUnits.days - prevDays) / (rawNextMilestone.days - prevDays), 0.08), 1);
+  // Circular Streak Ring percentage calculation: Math.min(100, Math.round((current_streak / roadmap_days) * 100))
+  const roadmapDays = profile.goalDays || 21;
+  const streakPercent = Math.min(100, Math.round((timeUnits.days / roadmapDays) * 100));
 
   const circumference = 2 * Math.PI * 72; // radius 72
-  const strokeDashoffset = circumference - progressRatio * circumference;
+  const strokeDashoffset = circumference - (Math.max(streakPercent, 2) / 100) * circumference;
 
   const handleShareVerse = () => {
     const shareText = `"${dailyVerse.text}" — ${dailyVerse.reference}\n\n${t.brand.slogan}\n${t.brand.appName}`;
@@ -259,6 +256,15 @@ export const HomeDashboard: React.FC<HomeDashboardProps> = ({
               }`}
             >
               {timeUnits.hours} {t.home.hours} {timeUnits.minutes} {t.home.mins}
+            </div>
+            <div
+              className={`mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border shadow-sm ${
+                isLight
+                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+              }`}
+            >
+              {streakPercent}% {lang === "ar" ? `من هدف الـ ${roadmapDays} يوماً` : `of ${roadmapDays}-Day Goal`}
             </div>
           </div>
         </div>

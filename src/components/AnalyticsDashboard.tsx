@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { UserProfile, DailyLog, Language, ThemeMode } from "@/types";
 import { NEUROPLASTICITY_STAGES, HALT_TRIGGERS } from "@/lib/constants";
-import { calculateAddictionSeverityIndex } from "@/lib/storage";
+import { calculateAddictionSeverityIndex, calculate30DayVictoryRate } from "@/lib/storage";
 import { getTranslation, getLocalizedTrigger, getLocalizedTimeOfDay } from "@/lib/i18n";
 import {
   Brain,
@@ -57,14 +57,29 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return Math.max(Math.floor((now - start) / (1000 * 60 * 60 * 24)), 0);
   }, [profile.streakStartTimestamp]);
 
-  // 1. Current Addiction Severity Index (dynamic drop from baseline)
+  // 30-day victory rate and average urge intensity from real daily logs
+  const victoryRate30 = useMemo(() => {
+    return calculate30DayVictoryRate(dailyLogs);
+  }, [dailyLogs]);
+
+  const avgUrgeLevel = useMemo(() => {
+    if (!dailyLogs || dailyLogs.length === 0) return 0;
+    const logsWithUrges = dailyLogs.filter((l) => typeof l.urgeIntensity === "number" && l.urgeIntensity > 0);
+    if (logsWithUrges.length === 0) return 0;
+    const sum = logsWithUrges.reduce((acc, l) => acc + l.urgeIntensity, 0);
+    return Number((sum / logsWithUrges.length).toFixed(1));
+  }, [dailyLogs]);
+
+  // 1. Current Addiction Severity Index (dynamic drop from baseline adjusted by victory rate & average urge)
   const currentSeverityIndex = useMemo(() => {
     return calculateAddictionSeverityIndex(
       profile.onboardingScore || 18,
       streakDays,
-      profile.urgesDefeatedCount
+      profile.urgesDefeatedCount,
+      victoryRate30,
+      avgUrgeLevel
     );
-  }, [profile.onboardingScore, streakDays, profile.urgesDefeatedCount]);
+  }, [profile.onboardingScore, streakDays, profile.urgesDefeatedCount, victoryRate30, avgUrgeLevel]);
 
   const severityReductionPercent = useMemo(() => {
     const base = Math.max(profile.onboardingScore || 18, 1);
@@ -72,8 +87,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     return Math.min(Math.max(Math.round((drop / base) * 100), 0), 95);
   }, [profile.onboardingScore, currentSeverityIndex]);
 
-  // 2. Neuroplasticity & Brain Reboot Progress (0% to 100% toward 90 days)
-  const rebootPercent = Math.min(Math.max(Math.round((streakDays / 90) * 100), 4), 100);
+  // Total victorious clean days
+  const totalCleanDays = useMemo(() => {
+    return dailyLogs.filter((l) => l.status === "clean" || l.status === "urge_defeated").length;
+  }, [dailyLogs]);
+
+  // 2. Neuroplasticity & Brain Reboot Progress (0% to 100% toward 90-day biological reboot)
+  const rebootPercent = useMemo(() => {
+    const consistencyScore = Math.min(streakDays * 0.7 + totalCleanDays * 0.3, 90);
+    return Math.min(Math.max(Math.round((consistencyScore / 90) * 100), 4), 100);
+  }, [streakDays, totalCleanDays]);
 
   // 3. Urge Intensity vs Self-Control Chart Data
   const areaChartData = useMemo(() => {
@@ -149,6 +172,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     });
 
     return stats;
+  }, [dailyLogs]);
+
+  // 6. High-Risk Time-of-Day 24-Hour Heatmap (0–23 Hours)
+  const hourlyHeatmap = useMemo(() => {
+    const hours = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0, highUrges: 0 }));
+    dailyLogs.forEach((log) => {
+      let h = (log as any).highRiskHour;
+      if (h === undefined || h === null) {
+        if (log.timeOfDay === "Morning") h = 9;
+        else if (log.timeOfDay === "Afternoon") h = 15;
+        else if (log.timeOfDay === "Evening") h = 21;
+        else if (log.timeOfDay === "Late Night 11PM-3AM") h = 1;
+        else h = 21;
+      }
+      if (h >= 0 && h < 24) {
+        hours[h].count += 1;
+        if (log.urgeIntensity >= 6 || log.status === "relapse") {
+          hours[h].highUrges += 1;
+        }
+      }
+    });
+    return hours;
   }, [dailyLogs]);
 
   // AI-Style Actionable Insight
@@ -514,77 +559,92 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
         {/* Recharts Area Container */}
         <div className="h-56 w-full pt-2">
-          {isMounted && (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={areaChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="urgeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.6} />
-                    <stop offset="95%" stopColor="#F43F5E" stopOpacity={0.0} />
-                  </linearGradient>
-                  <linearGradient id="streakGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <XAxis
-                  dataKey="date"
-                  stroke={isLight ? "#94A3B8" : "#64748B"}
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={{ stroke: isLight ? "#E2E8F0" : "#334155" }}
-                />
-                <YAxis
-                  stroke={isLight ? "#94A3B8" : "#64748B"}
-                  fontSize={10}
-                  tickLine={false}
-                  domain={[0, 10]}
-                  axisLine={{ stroke: isLight ? "#E2E8F0" : "#334155" }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: isLight ? "#FFFFFF" : "#0F172A",
-                    borderColor: isLight ? "#E2E8F0" : "#334155",
-                    borderRadius: "12px",
-                    fontSize: "11px",
-                    color: isLight ? "#0F172A" : "#F1F5F9",
-                    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-                  }}
-                  formatter={(val: any, name: string) => [
-                    val,
-                    name === "urgeIntensity"
-                      ? lang === "ar"
-                        ? "شدة الشهوة (١-١٠)"
-                        : "Urge Intensity (1-10)"
-                      : lang === "ar"
-                      ? "أيام الطهارة المتتالية"
-                      : "Consecutive Clean Days",
-                  ]}
-                  labelFormatter={(lbl, items) => {
-                    const item = items && items[0]?.payload;
-                    return item ? `${item.fullDate} (${item.status.toUpperCase()})` : lbl;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="urgeIntensity"
-                  stroke="#F43F5E"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#urgeGrad)"
-                  name="urgeIntensity"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="selfControlStreak"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#streakGrad)"
-                  name="selfControlStreak"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {areaChartData.length === 0 ? (
+            <div
+              className={`h-full flex flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed ${
+                isLight ? "bg-slate-50 border-slate-300" : "bg-slate-950/50 border-slate-800"
+              }`}
+            >
+              <Flame className="w-8 h-8 text-rose-500/40 mb-2" />
+              <p className={`text-xs font-semibold ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                {lang === "ar"
+                  ? "ابدأ تسجيل فحصك اليومي الأول لرسم منحنى شدة الشهوة مقابل ثبات الطهارة."
+                  : "Complete your first daily check-in to plot your urge intensity against clean streak resilience."}
+              </p>
+            </div>
+          ) : (
+            isMounted && (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={areaChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="urgeGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.6} />
+                      <stop offset="95%" stopColor="#F43F5E" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="streakGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis
+                    dataKey="date"
+                    stroke={isLight ? "#94A3B8" : "#64748B"}
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={{ stroke: isLight ? "#E2E8F0" : "#334155" }}
+                  />
+                  <YAxis
+                    stroke={isLight ? "#94A3B8" : "#64748B"}
+                    fontSize={10}
+                    tickLine={false}
+                    domain={[0, 10]}
+                    axisLine={{ stroke: isLight ? "#E2E8F0" : "#334155" }}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: isLight ? "#FFFFFF" : "#0F172A",
+                      borderColor: isLight ? "#E2E8F0" : "#334155",
+                      borderRadius: "12px",
+                      fontSize: "11px",
+                      color: isLight ? "#0F172A" : "#F1F5F9",
+                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                    }}
+                    formatter={(val: any, name: string) => [
+                      val,
+                      name === "urgeIntensity"
+                        ? lang === "ar"
+                          ? "شدة الشهوة (١-١٠)"
+                          : "Urge Intensity (1-10)"
+                        : lang === "ar"
+                        ? "أيام الطهارة المتتالية"
+                        : "Consecutive Clean Days",
+                    ]}
+                    labelFormatter={(lbl, items) => {
+                      const item = items && items[0]?.payload;
+                      return item ? `${item.fullDate} (${item.status.toUpperCase()})` : lbl;
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="urgeIntensity"
+                    stroke="#F43F5E"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#urgeGrad)"
+                    name="urgeIntensity"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="selfControlStreak"
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#streakGrad)"
+                    name="selfControlStreak"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )
           )}
         </div>
 
@@ -631,37 +691,52 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
         {/* HALT Trigger Progress Bars (RTL & LTR Native, Zero SVG Clipping) */}
         <div className="space-y-3.5 pt-1">
-          {triggerStats.list.slice(0, 5).map((entry, index) => {
-            const barColors = [
-              "from-rose-500 to-rose-400",
-              "from-amber-500 to-amber-400",
-              "from-sky-500 to-sky-400",
-              "from-emerald-500 to-emerald-400",
-              "from-indigo-500 to-indigo-400",
-            ];
-            const colorGradient = barColors[index % barColors.length];
-            const maxCount = triggerStats.list[0]?.count || 1;
-            const barWidthPercent = Math.max(12, Math.round((entry.count / maxCount) * 100));
+          {triggerStats.list.length === 0 ? (
+            <div
+              className={`py-6 text-center rounded-2xl border border-dashed ${
+                isLight ? "bg-slate-50 border-slate-300" : "bg-slate-950/50 border-slate-800"
+              }`}
+            >
+              <Zap className="w-7 h-7 text-amber-500/40 mx-auto mb-2" />
+              <p className={`text-xs font-medium ${isLight ? "text-slate-600" : "text-slate-400"}`}>
+                {lang === "ar"
+                  ? "لم يتم رصد أي محفزات ضاغطة بعد. سجل فحصك اليومي لتعقب محفزات HALT (جوع، غضب، وحدة، إرهاق)."
+                  : "No emotional triggers recorded yet. Check in daily to identify your HALT triggers (Hungry, Angry, Lonely, Tired)."}
+              </p>
+            </div>
+          ) : (
+            triggerStats.list.slice(0, 5).map((entry, index) => {
+              const barColors = [
+                "from-rose-500 to-rose-400",
+                "from-amber-500 to-amber-400",
+                "from-sky-500 to-sky-400",
+                "from-emerald-500 to-emerald-400",
+                "from-indigo-500 to-indigo-400",
+              ];
+              const colorGradient = barColors[index % barColors.length];
+              const maxCount = triggerStats.list[0]?.count || 1;
+              const barWidthPercent = Math.max(12, Math.round((entry.count / maxCount) * 100));
 
-            return (
-              <div key={entry.id} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs font-semibold">
-                  <span className={`truncate max-w-[70%] ${isLight ? "text-slate-800" : "text-slate-200"}`}>
-                    {entry.name}
-                  </span>
-                  <span className={`text-[11px] font-bold ${isLight ? "text-slate-500" : "text-slate-400"}`}>
-                    {entry.count} {lang === "ar" ? "مرات" : "logs"} ({entry.percent}%)
-                  </span>
+              return (
+                <div key={entry.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className={`truncate max-w-[70%] ${isLight ? "text-slate-800" : "text-slate-200"}`}>
+                      {entry.name}
+                    </span>
+                    <span className={`text-[11px] font-bold ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+                      {entry.count} {lang === "ar" ? "مرات" : "logs"} ({entry.percent}%)
+                    </span>
+                  </div>
+                  <div className={`w-full h-3 rounded-full overflow-hidden ${isLight ? "bg-slate-100" : "bg-slate-800/80"}`}>
+                    <div
+                      className={`h-full bg-gradient-to-r ${colorGradient} rounded-full transition-all duration-500`}
+                      style={{ width: `${barWidthPercent}%` }}
+                    />
+                  </div>
                 </div>
-                <div className={`w-full h-3 rounded-full overflow-hidden ${isLight ? "bg-slate-100" : "bg-slate-800/80"}`}>
-                  <div
-                    className={`h-full bg-gradient-to-r ${colorGradient} rounded-full transition-all duration-500`}
-                    style={{ width: `${barWidthPercent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {/* AI Actionable Insight Card */}
@@ -772,6 +847,50 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             );
           })}
+        </div>
+
+        {/* 24-Hour (0-23) Detailed Heatmap Bar */}
+        <div className="space-y-2 pt-2 border-t border-slate-800/60">
+          <div className="flex items-center justify-between text-xs">
+            <span className={`font-semibold ${isLight ? "text-slate-700" : "text-slate-300"}`}>
+              {lang === "ar" ? "توزيع الساعات الخطر (٠-٢٣)" : "24-Hour Risk Heatmap (0–23h)"}
+            </span>
+            <span className={`text-[10px] ${isLight ? "text-slate-500" : "text-slate-400"}`}>
+              {lang === "ar" ? "تدرج الشدة حسب تكرار الشهوات" : "Peak urge intensity by hour"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-12 gap-1 pt-1">
+            {hourlyHeatmap.map((item) => {
+              const count = item.count;
+              const hasHighUrge = item.highUrges > 0;
+              const bgClass =
+                count === 0
+                  ? isLight ? "bg-slate-100 text-slate-400" : "bg-slate-800/40 text-slate-600"
+                  : hasHighUrge
+                  ? "bg-rose-500 text-white font-bold"
+                  : count >= 2
+                  ? "bg-amber-500 text-slate-950 font-bold"
+                  : "bg-emerald-500/80 text-white";
+
+              return (
+                <div
+                  key={item.hour}
+                  title={`Hour ${item.hour}:00 - ${count} urges`}
+                  className={`h-8 rounded flex flex-col items-center justify-center text-[9px] transition-all ${bgClass}`}
+                >
+                  <span>{item.hour}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between text-[9px] text-slate-500 px-0.5">
+            <span>12 AM (0h)</span>
+            <span>6 AM</span>
+            <span>12 PM (Noon)</span>
+            <span>6 PM</span>
+            <span>11 PM (23h)</span>
+          </div>
         </div>
 
         <div

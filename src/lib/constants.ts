@@ -117,6 +117,14 @@ export const BIBLICAL_MILESTONES: Milestone[] = [
     description: "40 days in the spiritual wilderness overcoming temptation like Christ with Scripture."
   },
   {
+    days: 60,
+    title: "Vessel of Honor",
+    verse: "2 Timothy 2:21",
+    verseText: "Therefore if anyone cleanses himself from the latter, he will be a vessel for honor, sanctified and useful for the Master, prepared for every good work.",
+    badge: "🏺",
+    description: "60 days of purity. Neural pathways of lust are dormant, replaced by self-control and holy honor."
+  },
+  {
     days: 90,
     title: "Renewed Mind",
     verse: "Romans 12:2",

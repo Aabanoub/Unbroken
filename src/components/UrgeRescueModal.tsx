@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
 import {
   AlertTriangle,
@@ -96,12 +96,15 @@ export const UrgeRescueModal: React.FC<UrgeRescueModalProps> = ({
   const isLight = theme === "light";
   const verses = lang === "ar" ? SWORD_VERSES_AR : SWORD_VERSES_EN;
   const currentVerse = verses[verseIndex % verses.length];
+  const victoryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Reset when opened
   useEffect(() => {
     if (isOpen) {
       setStage(1);
       setTimeLeft(60);
+      setBreathePhase("Inhale");
+      setBreatheSeconds(4);
       setReadCount(0);
       setChecklist({
         leaveRoom: false,
@@ -112,7 +115,16 @@ export const UrgeRescueModal: React.FC<UrgeRescueModalProps> = ({
     }
   }, [isOpen]);
 
-  // Box Breathing Countdown effect
+  // Clean up any pending victory timer on unmount
+  useEffect(() => {
+    return () => {
+      if (victoryTimerRef.current) {
+        clearTimeout(victoryTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Box Breathing Countdown effect (4s inhale, 4s hold, 4s exhale, 4s hold empty)
   useEffect(() => {
     if (!isOpen || stage !== 1) return;
 
@@ -125,7 +137,7 @@ export const UrgeRescueModal: React.FC<UrgeRescueModalProps> = ({
         return prev - 1;
       });
 
-      // 16-second breathing cycle
+      // 16-second breathing cycle (4s each phase)
       setBreatheSeconds((prev) => {
         if (prev <= 1) {
           setBreathePhase((phase) => {
@@ -158,7 +170,8 @@ export const UrgeRescueModal: React.FC<UrgeRescueModalProps> = ({
     }
 
     setStage(4);
-    setTimeout(() => {
+    if (victoryTimerRef.current) clearTimeout(victoryTimerRef.current);
+    victoryTimerRef.current = setTimeout(() => {
       onVictory(
         lang === "ar"
           ? "تم الانتصار على الشهوة ببروتوكول SOS ثلاثي المراحل."

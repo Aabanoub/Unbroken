@@ -104,7 +104,7 @@ export const OnboardingAssessment: React.FC<OnboardingAssessmentProps> = ({
             ? "لَمْ تُصِبْكُمْ تَجْرِبَةٌ إِلاَّ بَشَرِيَّةٌ. وَلكِنَّ اللهَ أَمِينٌ، الَّذِي لاَ يَدَعُكُمْ تُجَرَّبُونَ فَوْقَ مَا تَسْتَطِيعُونَ، بَلْ سَيَجْعَلُ مَعَ التَّجْرِبَةِ أَيْضاً الْمَنْفَذَ..."
             : "No temptation has overtaken you except such as is common to man; but God is faithful, who will not allow you to be tempted beyond what you are able...",
       };
-    } else if (score <= 21) {
+    } else if (score <= 20) {
       return {
         tier: "Level 2 — Moderate Compulsive Dependency",
         displayTier:

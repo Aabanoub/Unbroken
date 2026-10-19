@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { Lock, Delete, Fingerprint, ScanFace, Sparkles } from "lucide-react";
 import { Language, ThemeMode } from "@/types";
@@ -113,7 +115,7 @@ export const PinLockScreen: React.FC<PinLockScreenProps> = ({
           <Lock className="w-8 h-8" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">
-          {disguiseTitle ? t.brand.disguiseTitle : t.brand.appName}
+          {disguiseTitle ? t.brand.disguiseTitle : (lang === "ar" ? "أنبروكن اليومي" : "Unbroken Daily")}
         </h1>
         <p
           className={`text-xs mt-1 max-w-xs leading-relaxed ${

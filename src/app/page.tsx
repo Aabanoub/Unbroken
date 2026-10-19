@@ -12,6 +12,7 @@ import {
 } from "@/types";
 import {
   calculateAddictionSeverityIndex,
+  calculateStreakFromDate,
   getGlobalLanguage,
   setGlobalLanguage,
   getGlobalTheme,
@@ -257,8 +258,12 @@ export default function AppRoot() {
       journalNote: `Relapse occurred. Environmental change committed: ${environmentalAdjustment}`,
     });
 
+    const currentStreak = calculateStreakFromDate(profile.streakStartTimestamp);
+    const newLongest = Math.max(profile.longestStreakDays || 0, currentStreak);
+
     updateProfile({
       streakStartTimestamp: new Date().toISOString(),
+      longestStreakDays: newLongest,
     });
   };
 

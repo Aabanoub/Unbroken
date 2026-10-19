@@ -3,13 +3,13 @@ import "./globals.css";
 import { AppProviders } from "@/components/AppProviders";
 
 export const metadata: Metadata = {
-  title: "Unbroken",
+  title: "Unbroken Daily",
   description: "Clear Eyes, Clean Mind.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Unbroken",
+    title: "Unbroken Daily",
   },
   icons: {
     icon: "/favicon.ico",
